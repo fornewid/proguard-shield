@@ -1,0 +1,71 @@
+name: Create Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      use_current_version:
+        description: 'Strip -SNAPSHOT from current version. Ignores custom_version when checked.'
+        type: boolean
+        default: true
+      custom_version:
+        description: 'Release version (e.g. 0.1.0). Used only when use_current_version is unchecked.'
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-release-pr:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Determine release version
+        id: version
+        run: |
+          if [ "${{ inputs.use_current_version }}" = "true" ]; then
+            CURRENT=$(grep 'VERSION_NAME=' proguard-shield/gradle.properties | cut -d'=' -f2)
+            VERSION="${CURRENT%-SNAPSHOT}"
+          else
+            VERSION="${{ inputs.custom_version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Release version: $VERSION"
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if [ -z "$VERSION" ]; then
+            echo "::error::Version is empty. Provide custom_version or check use_current_version."
+            exit 1
+          fi
+          if [[ "$VERSION" == *-SNAPSHOT ]]; then
+            echo "::error::Version must not contain -SNAPSHOT suffix: $VERSION"
+            exit 1
+          fi
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must be in major.minor.patch format: $VERSION"
+            exit 1
+          fi
+          echo "Version $VERSION is valid"
+
+      - name: Update version in gradle.properties
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/VERSION_NAME=.*/VERSION_NAME=$VERSION/" proguard-shield/gradle.properties
+
+      - name: Create release PR
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: release/${{ steps.version.outputs.version }}
+          title: "Release ${{ steps.version.outputs.version }}"
+          body: |
+            Automated release PR for version `${{ steps.version.outputs.version }}`.
+
+            - [ ] CI checks passed
+            - [ ] Version is correct
+          commit-message: "Release ${{ steps.version.outputs.version }}"
+          delete-branch: true

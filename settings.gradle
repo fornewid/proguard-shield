@@ -1,0 +1,17 @@
+pluginManagement {
+    includeBuild('proguard-shield')
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+include ":sample:app"
+include ":sample:module1"
+
+includeBuild('proguard-shield') {
+    dependencySubstitution {
+        substitute module('io.github.fornewid.proguard-shield:proguard-shield') using project(':')
+    }
+}
