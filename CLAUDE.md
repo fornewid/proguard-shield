@@ -12,7 +12,7 @@ Current roadmap (see `README.md`):
 3. Approach 2-B prototype: R8 task input interception (AGP internal API via reflection).
 4. Forbidden pattern checker (regex-based).
 
-The approach for v0 is documented in the plan file committed during bootstrap: two approaches will be implemented as swappable strategies so the author can benchmark and pick one for the final release.
+The approach for v0: two strategies (`-printconfiguration` + R8 task input interception via reflection) will be implemented as swappable prototypes in follow-up PRs so the author can benchmark and pick one for the final release.
 
 ## Build & Test Commands
 
@@ -55,7 +55,6 @@ The repo is a Gradle **included build**: the root project pulls in the plugin mo
 ### References
 
 - `manifest-shield` sibling repo uses the same patterns: variant handler, shield-flag interface, baseline file utils, `gradleTest` GradleRunner fixture.
-- v0 design doc: plan file tracked in the bootstrap PR.
 
 ## Publishing
 
