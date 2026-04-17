@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Status
 
-**Bootstrap phase.** Repo structure mirrors the sibling project `manifest-shield` (located at `/Users/sungyong.an/Projects/fornewid/manifest-shield`). The plugin entry class (`ProGuardShieldPlugin`) is intentionally empty — real functionality will land in follow-up PRs.
+**Bootstrap phase.** Repo structure mirrors the sibling project [`manifest-shield`](https://github.com/fornewid/manifest-shield). The plugin entry class (`ProGuardShieldPlugin`) is intentionally empty — real functionality will land in follow-up PRs.
 
 Current roadmap (see `README.md`):
 1. Plugin module skeleton (extension DSL, variant handler).

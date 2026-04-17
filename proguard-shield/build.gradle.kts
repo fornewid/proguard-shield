@@ -93,7 +93,7 @@ testing {
           testTask.configure {
             shouldRunAfter(test)
             dependsOn(deleteOldGradleTests)
-            maxParallelForks = Runtime.getRuntime().availableProcessors() / 2
+            maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
           }
         }
       }

@@ -14,7 +14,7 @@ public class ProGuardShieldPlugin : Plugin<Project> {
         internal val VERSION: String by lazy {
             ProGuardShieldPlugin::class.java
                 .getResourceAsStream("/proguard-shield.properties")
-                ?.let { Properties().apply { load(it) }.getProperty("version") }
+                ?.use { Properties().apply { load(it) }.getProperty("version") }
                 ?: "dev"
         }
     }
