@@ -54,7 +54,13 @@ internal object R8TaskInputExtractor {
                             "'proguardShield' task instead of 'proguardShieldFast'.",
                     )
                 }
-            method.invoke(task) as FileCollection
+            val value = method.invoke(task)
+            value as? FileCollection
+                ?: throw GradleException(
+                    "ProGuard Shield fast mode: $methodName returned an unsupported type " +
+                        "(${value?.let { it::class.qualifiedName }}) in this AGP version. " +
+                        "Switch to the standard 'proguardShield' task instead of 'proguardShieldFast'.",
+                )
         }
 
         return collections.reduce { acc, next -> acc.plus(next) }
