@@ -169,6 +169,8 @@ internal object AndroidVariantHandler {
             R8TaskInputExtractor.allRuleFiles(project.tasks.named(minifyTaskName).get())
         }
 
+        val rootDir = project.rootDir.absolutePath
+
         val fastConfigGuardTask = project.tasks.register(
             "proguardShieldFast$capitalizedName",
             ProGuardShieldFastListTask::class.java,
@@ -180,6 +182,7 @@ internal object AndroidVariantHandler {
             pluginVersion.set(ProGuardShieldPlugin.VERSION)
             this.baselineDir.set(baselineDirectory)
             this.filePrefix.set(fastFilePrefix)
+            this.rootDirPath.set(rootDir)
         }
         fastGuardTask.configure { dependsOn(fastConfigGuardTask) }
 
@@ -194,6 +197,7 @@ internal object AndroidVariantHandler {
             pluginVersion.set(ProGuardShieldPlugin.VERSION)
             this.baselineDir.set(baselineDirectory)
             this.filePrefix.set(fastFilePrefix)
+            this.rootDirPath.set(rootDir)
         }
         fastBaselineTask.configure { dependsOn(fastConfigBaselineTask) }
     }

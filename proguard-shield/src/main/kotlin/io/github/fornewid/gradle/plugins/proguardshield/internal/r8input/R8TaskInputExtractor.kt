@@ -37,8 +37,8 @@ internal object R8TaskInputExtractor {
             .getOrElse {
                 throw GradleException(
                     "ProGuard Shield fast mode: AGP internal class '$BASE_CLASS' not found. " +
-                        "This AGP version is not supported by approach 2-B; " +
-                        "use the standard 'proguardShield' task (approach 1) instead.",
+                        "This AGP version is unsupported; " +
+                        "use the standard 'proguardShield' task instead of 'proguardShieldFast'.",
                 )
             }
 

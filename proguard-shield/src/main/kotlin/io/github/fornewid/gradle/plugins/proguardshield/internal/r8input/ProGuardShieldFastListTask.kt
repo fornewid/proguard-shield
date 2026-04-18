@@ -57,6 +57,14 @@ internal abstract class ProGuardShieldFastListTask : DefaultTask() {
     @get:Input
     abstract val filePrefix: Property<String>
 
+    /**
+     * Absolute path of the project's root directory, passed through as an
+     * `@Input` so the `@TaskAction` can compute stable relative paths without
+     * touching the `Project` instance (Configuration Cache forbids that).
+     */
+    @get:Input
+    abstract val rootDirPath: Property<String>
+
     init {
         declareCompatibilities()
     }
@@ -69,10 +77,14 @@ internal abstract class ProGuardShieldFastListTask : DefaultTask() {
         val dir = baselineDir.get()
         val prefix = filePrefix.get()
 
-        // Stable order across machines/runs: sort by path relative to project dir.
-        val rootDir = project.rootDir
+        // Stable order across machines/runs: sort by path relative to project
+        // root. Files outside the root (e.g. extractedDefaultProguardFile in
+        // Gradle home) fall back to the absolute path.
+        val rootDir = java.io.File(rootDirPath.get())
         val concatenated = ruleInputs.files
-            .sortedBy { it.relativeTo(rootDir).path }
+            .sortedBy { file ->
+                if (file.startsWith(rootDir)) file.relativeTo(rootDir).path else file.absolutePath
+            }
             .joinToString("\n") { file ->
                 if (file.exists() && file.isFile) file.readText() else ""
             }
