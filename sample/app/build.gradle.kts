@@ -27,3 +27,7 @@ dependencies {
     implementation(project(":sample:module1"))
     implementation(libs.androidx.activity)
 }
+
+proguardShield {
+    configuration("release")
+}

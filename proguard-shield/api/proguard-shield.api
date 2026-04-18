@@ -1,6 +1,19 @@
+public class io/github/fornewid/gradle/plugins/proguardshield/ProGuardShieldConfiguration : org/gradle/api/Named {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun getConfigurationName ()Ljava/lang/String;
+	public fun getName ()Ljava/lang/String;
+}
+
 public final class io/github/fornewid/gradle/plugins/proguardshield/ProGuardShieldPlugin : org/gradle/api/Plugin {
 	public fun <init> ()V
 	public synthetic fun apply (Ljava/lang/Object;)V
 	public fun apply (Lorg/gradle/api/Project;)V
+}
+
+public class io/github/fornewid/gradle/plugins/proguardshield/ProGuardShieldPluginExtension {
+	public fun <init> (Lorg/gradle/api/model/ObjectFactory;)V
+	public final fun configuration (Ljava/lang/String;)V
+	public final fun configuration (Ljava/lang/String;Lorg/gradle/api/Action;)V
+	public final fun getBaselineDir ()Lorg/gradle/api/provider/Property;
 }
 
