@@ -53,7 +53,6 @@ public static final ** CREATOR;
 -dontnote android.net.http.**
 -dontnote java.lang.invoke.**
 -keepattributes SourceFile,LineNumberTable
--printconfiguration /Users/sungyong.an/Projects/fornewid/proguard-shield/sample/app/build/proguardShield/release/merged-rules.txt
 -keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.view.ViewCompat$Api* {
 <methods>;
 }

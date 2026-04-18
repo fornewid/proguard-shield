@@ -10,11 +10,9 @@ internal object OutputFileUtils {
         project: Project,
         baselineDir: String,
     ): Directory {
-        val dir = project.layout.projectDirectory.dir(baselineDir)
-        dir.asFile.apply {
-            if (!exists()) mkdirs()
-        }
-        return dir
+        // The @OutputDirectory declaration on ProGuardShieldListTask ensures Gradle
+        // materializes the directory at execution time; no mkdirs() needed here.
+        return project.layout.projectDirectory.dir(baselineDir)
     }
 
     fun baselineFile(

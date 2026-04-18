@@ -15,6 +15,7 @@ internal object RuleNormalizer {
         return raw.lineSequence()
             .map { stripInlineComment(it).trim() }
             .filter { it.isNotEmpty() }
+            .filter { !it.startsWith("-printconfiguration") }
             .toList()
     }
 

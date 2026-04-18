@@ -64,6 +64,21 @@ class RuleNormalizerTest {
     }
 
     @Test
+    fun `strips our injected -printconfiguration directive`() {
+        // R8's merged output echoes back the -printconfiguration line from our
+        // injected .pro file. That line contains an absolute build-dir path, so
+        // leaving it in the baseline would break reproducibility across machines.
+        val input = """
+            -printconfiguration /Users/ci/work/proguard-shield/sample/app/build/proguardShield/release/merged-rules.txt
+            -keep class com.example.Foo
+        """.trimIndent()
+
+        val result = RuleNormalizer.normalize(input)
+
+        assertThat(result).isEqualTo("-keep class com.example.Foo")
+    }
+
+    @Test
     fun `empty input produces empty output`() {
         assertThat(RuleNormalizer.normalize("")).isEqualTo("")
         assertThat(RuleNormalizer.normalize("# only comment")).isEqualTo("")
