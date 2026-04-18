@@ -80,8 +80,22 @@ internal object RuleDiff {
         val expected = RuleNormalizer.normalizeLines(expectedContent)
         val actual = RuleNormalizer.normalizeLines(actualContent)
 
-        val removed = expected.filter { it !in actual }
-        val added = actual.filter { it !in expected }
+        // Multiset diff: R8's merged output has many duplicate rules (e.g. the
+        // same -dontwarn line contributed by several AARs), so a plain
+        // List.contains check would treat "2 copies" and "1 copy" as identical.
+        val expectedCounts = expected.groupingBy { it }.eachCount()
+        val actualCounts = actual.groupingBy { it }.eachCount()
+
+        val removed = mutableListOf<String>()
+        val added = mutableListOf<String>()
+        for (key in expectedCounts.keys + actualCounts.keys) {
+            val e = expectedCounts[key] ?: 0
+            val a = actualCounts[key] ?: 0
+            when {
+                a > e -> repeat(a - e) { added.add(key) }
+                e > a -> repeat(e - a) { removed.add(key) }
+            }
+        }
 
         return if (removed.isEmpty() && added.isEmpty()) {
             RuleDiffResult.NoDiff(projectPath, configurationName)
