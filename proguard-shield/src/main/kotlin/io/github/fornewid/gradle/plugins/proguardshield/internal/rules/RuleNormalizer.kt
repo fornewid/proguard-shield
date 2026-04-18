@@ -4,8 +4,11 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.rules
  * Normalizes R8 `-printconfiguration` output so cosmetic changes (comments,
  * blank lines, trailing whitespace) don't cause spurious baseline diffs.
  *
- * Order of the remaining lines is preserved — R8's output is deterministic
- * for a fixed input, and humans read baselines top-down by source.
+ * Lines are sorted alphabetically. R8 does not guarantee a stable output
+ * order across versions, and the fast task concatenates files in whatever
+ * order Gradle yields them — sorting up front makes the baseline
+ * version-stable and lets the accurate and fast tasks produce
+ * bit-identical baseline files.
  */
 internal object RuleNormalizer {
 
