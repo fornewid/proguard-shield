@@ -1,0 +1,227 @@
+-keepclassmembers,allowobfuscation class * extends androidx.lifecycle.ViewModel {
+<init>();
+}
+-keepclassmembers,allowobfuscation class * extends androidx.lifecycle.AndroidViewModel {
+<init>(android.app.Application);
+}
+-keepclassmembers,allowobfuscation class * implements androidx.savedstate.SavedStateRegistry$AutoRecreated {
+<init>();
+}
+-keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.view.ViewCompat$Api* {
+<methods>;
+}
+-keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.view.WindowInsetsCompat$*Impl* {
+<methods>;
+}
+-keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.app.NotificationCompat$*$Api*Impl {
+<methods>;
+}
+-keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.os.UserHandleCompat$Api*Impl {
+<methods>;
+}
+-keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.widget.EdgeEffectCompat$Api*Impl {
+<methods>;
+}
+-keep,allowobfuscation @interface androidx.annotation.Keep
+-keep @androidx.annotation.Keep class * {*;}
+-keepclasseswithmembers class * {
+@androidx.annotation.Keep <methods>;
+}
+-keepclasseswithmembers class * {
+@androidx.annotation.Keep <fields>;
+}
+-keepclasseswithmembers class * {
+@androidx.annotation.Keep <init>(...);
+}
+-keepclassmembers,allowobfuscation class * {
+@androidx.annotation.DoNotInline <methods>;
+}
+-keep class * implements androidx.versionedparcelable.VersionedParcelable
+-keep public class android.support.**Parcelizer { *; }
+-keep public class androidx.**Parcelizer { *; }
+-keep public class androidx.versionedparcelable.ParcelImpl
+-dontwarn kotlin.Deprecated
+-dontwarn kotlin.Metadata
+-dontwarn kotlin.ReplaceWith
+-dontwarn kotlin.annotation.AnnotationRetention
+-dontwarn kotlin.annotation.AnnotationTarget
+-dontwarn kotlin.annotation.Retention
+-dontwarn kotlin.annotation.Target
+-keepattributes *Annotation*
+-keepclassmembers enum androidx.lifecycle.Lifecycle$Event {
+<fields>;
+}
+-keep !interface * implements androidx.lifecycle.LifecycleObserver {
+}
+-keep class * implements androidx.lifecycle.GeneratedAdapter {
+<init>(...);
+}
+-keepclassmembers class ** {
+@androidx.lifecycle.OnLifecycleEvent *;
+}
+-keepclassmembers class androidx.lifecycle.ReportFragment$LifecycleCallbacks { *; }
+-keepclassmembers,allowobfuscation class * extends androidx.lifecycle.ViewModel {
+<init>(androidx.lifecycle.SavedStateHandle);
+}
+-keepclassmembers,allowobfuscation class * extends androidx.lifecycle.AndroidViewModel {
+<init>(android.app.Application,androidx.lifecycle.SavedStateHandle);
+}
+-keep class androidx.core.app.CoreComponentFactory { <init>(); }
+-keep class io.github.fornewid.proguard.shield.sample.app.MainActivity { <init>(); }
+-allowaccessmodification
+-keepattributes AnnotationDefault,
+EnclosingMethod,
+InnerClasses,
+RuntimeVisibleAnnotations,
+RuntimeVisibleParameterAnnotations,
+RuntimeVisibleTypeAnnotations,
+Signature
+-keep public class com.google.vending.licensing.ILicensingService
+-keep public class com.android.vending.licensing.ILicensingService
+-keep public class com.google.android.vending.licensing.ILicensingService
+-dontnote com.android.vending.licensing.ILicensingService
+-dontnote com.google.vending.licensing.ILicensingService
+-dontnote com.google.android.vending.licensing.ILicensingService
+-keepclasseswithmembernames,includedescriptorclasses class * {
+native <methods>;
+}
+-keepclassmembers public class * extends android.view.View {
+void set*(***);
+*** get*();
+}
+-keepclassmembers class * extends android.app.Activity {
+public void *(android.view.View);
+}
+-keepclassmembers enum * {
+public static **[] values();
+public static ** valueOf(java.lang.String);
+}
+-keepclassmembers class * implements android.os.Parcelable {
+public static final ** CREATOR;
+}
+-keepclassmembers class * {
+@android.webkit.JavascriptInterface <methods>;
+}
+-dontnote android.support.**
+-dontnote androidx.**
+-dontwarn android.support.**
+-dontwarn androidx.**
+-keep class android.support.annotation.Keep
+-keep @android.support.annotation.Keep class * {*;}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <methods>;
+}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <fields>;
+}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <init>(...);
+}
+-dontnote org.apache.http.**
+-dontnote android.net.http.**
+-dontnote java.lang.invoke.**
+-dontoptimize
+-keepattributes AnnotationDefault,
+EnclosingMethod,
+InnerClasses,
+RuntimeVisibleAnnotations,
+RuntimeVisibleParameterAnnotations,
+RuntimeVisibleTypeAnnotations,
+Signature
+-keep public class com.google.vending.licensing.ILicensingService
+-keep public class com.android.vending.licensing.ILicensingService
+-keep public class com.google.android.vending.licensing.ILicensingService
+-dontnote com.android.vending.licensing.ILicensingService
+-dontnote com.google.vending.licensing.ILicensingService
+-dontnote com.google.android.vending.licensing.ILicensingService
+-keepclasseswithmembernames,includedescriptorclasses class * {
+native <methods>;
+}
+-keepclassmembers public class * extends android.view.View {
+void set*(***);
+*** get*();
+}
+-keepclassmembers class * extends android.app.Activity {
+public void *(android.view.View);
+}
+-keepclassmembers enum * {
+public static **[] values();
+public static ** valueOf(java.lang.String);
+}
+-keepclassmembers class * implements android.os.Parcelable {
+public static final ** CREATOR;
+}
+-keepclassmembers class * {
+@android.webkit.JavascriptInterface <methods>;
+}
+-dontnote android.support.**
+-dontnote androidx.**
+-dontwarn android.support.**
+-dontwarn androidx.**
+-keep class android.support.annotation.Keep
+-keep @android.support.annotation.Keep class * {*;}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <methods>;
+}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <fields>;
+}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <init>(...);
+}
+-dontnote org.apache.http.**
+-dontnote android.net.http.**
+-dontnote java.lang.invoke.**
+-allowaccessmodification
+-keepattributes AnnotationDefault,
+EnclosingMethod,
+InnerClasses,
+RuntimeVisibleAnnotations,
+RuntimeVisibleParameterAnnotations,
+RuntimeVisibleTypeAnnotations,
+Signature
+-keep public class com.google.vending.licensing.ILicensingService
+-keep public class com.android.vending.licensing.ILicensingService
+-keep public class com.google.android.vending.licensing.ILicensingService
+-dontnote com.android.vending.licensing.ILicensingService
+-dontnote com.google.vending.licensing.ILicensingService
+-dontnote com.google.android.vending.licensing.ILicensingService
+-keepclasseswithmembernames,includedescriptorclasses class * {
+native <methods>;
+}
+-keepclassmembers public class * extends android.view.View {
+void set*(***);
+*** get*();
+}
+-keepclassmembers class * extends android.app.Activity {
+public void *(android.view.View);
+}
+-keepclassmembers enum * {
+public static **[] values();
+public static ** valueOf(java.lang.String);
+}
+-keepclassmembers class * implements android.os.Parcelable {
+public static final ** CREATOR;
+}
+-keepclassmembers class * {
+@android.webkit.JavascriptInterface <methods>;
+}
+-dontnote android.support.**
+-dontnote androidx.**
+-dontwarn android.support.**
+-dontwarn androidx.**
+-keep class android.support.annotation.Keep
+-keep @android.support.annotation.Keep class * {*;}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <methods>;
+}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <fields>;
+}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <init>(...);
+}
+-dontnote org.apache.http.**
+-dontnote android.net.http.**
+-dontnote java.lang.invoke.**
+-keepattributes SourceFile,LineNumberTable
