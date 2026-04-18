@@ -83,7 +83,13 @@ internal abstract class ProGuardShieldFastListTask : DefaultTask() {
         val rootDir = java.io.File(rootDirPath.get())
         val concatenated = ruleInputs.files
             .sortedBy { file ->
-                if (file.startsWith(rootDir)) file.relativeTo(rootDir).path else file.absolutePath
+                // invariantSeparatorsPath normalizes `\` -> `/` so baselines
+                // generated on Windows match those generated on Linux/macOS.
+                if (file.startsWith(rootDir)) {
+                    file.relativeTo(rootDir).invariantSeparatorsPath
+                } else {
+                    file.absoluteFile.invariantSeparatorsPath
+                }
             }
             .joinToString("\n") { file ->
                 if (file.exists() && file.isFile) file.readText() else ""

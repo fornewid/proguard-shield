@@ -33,7 +33,9 @@ internal object R8TaskInputExtractor {
     )
 
     fun allRuleFiles(task: Task): FileCollection {
-        val baseClass = runCatching { Class.forName(BASE_CLASS) }
+        // Load from the task's own classloader: with `includeBuild` or plugin
+        // isolation AGP can live in a different loader than this plugin.
+        val baseClass = runCatching { task.javaClass.classLoader.loadClass(BASE_CLASS) }
             .getOrElse {
                 throw GradleException(
                     "ProGuard Shield fast mode: AGP internal class '$BASE_CLASS' not found. " +
