@@ -1,10 +1,13 @@
 package io.github.fornewid.gradle.plugins.proguardshield.internal
 
-import com.android.build.api.variant.AndroidComponentsExtension
-import com.android.build.api.variant.Variant
+import com.android.build.api.variant.ApplicationAndroidComponentsExtension
+import com.android.build.api.variant.ApplicationVariant
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldConfiguration
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPluginExtension
+import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.GenerateInjectedRulesTask
+import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.ProGuardShieldListTask
+import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.OutputFileUtils
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
@@ -22,9 +25,8 @@ internal object AndroidVariantHandler {
         guardTask: TaskProvider<*>,
         baselineTask: TaskProvider<*>,
     ) {
-        val androidComponents = project.extensions.getByType(AndroidComponentsExtension::class.java)
+        val androidComponents = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java)
 
-        // Track all variant names, declared config names, and which matched.
         val allVariantNames = mutableSetOf<String>()
         val declaredConfigNames = mutableSetOf<String>()
         val matchedConfigs = mutableSetOf<String>()
@@ -35,13 +37,21 @@ internal object AndroidVariantHandler {
                 declaredConfigNames.add(configurationName)
                 if (configurationName == variant.name) {
                     matchedConfigs.add(configurationName)
-                    registerTasks(project, this, variant, guardTask, baselineTask)
+                    registerTasks(
+                        project = project,
+                        baselineDir = extension.baselineDir.get(),
+                        config = this,
+                        variant = variant,
+                        guardTask = guardTask,
+                        baselineTask = baselineTask,
+                    )
                 }
             }
         }
 
         // Validate at task configuration time (not doFirst) — CC-safe.
-        // Only plain String sets are referenced — no extension or project objects.
+        // `guardTask.configure {}` runs at configuration time and captures only plain
+        // String sets; the lambda itself is not serialized into the CC state.
         guardTask.configure {
             validateConfigurations(declaredConfigNames, matchedConfigs, allVariantNames)
         }
@@ -80,30 +90,67 @@ internal object AndroidVariantHandler {
 
     private fun registerTasks(
         project: Project,
+        baselineDir: String,
         config: ProGuardShieldConfiguration,
-        @Suppress("UNUSED_PARAMETER") variant: Variant,
+        variant: ApplicationVariant,
         guardTask: TaskProvider<*>,
         baselineTask: TaskProvider<*>,
     ) {
+        if (!variant.isMinifyEnabled) {
+            throw GradleException(
+                "ProGuard Shield: variant \"${variant.name}\" does not have minification enabled. " +
+                    "Either enable it via android.buildTypes.${variant.name}.isMinifyEnabled = true, " +
+                    "or remove configuration(\"${variant.name}\") from the proguardShield DSL.",
+            )
+        }
+
         val capitalizedName = config.configurationName.capitalize()
+        val baselineDirectory = OutputFileUtils.proguardShieldDir(project, baselineDir)
+        val filePrefix = "${config.configurationName}Rules"
+        val variantOutputDir = project.layout.buildDirectory.dir("proguardShield/${variant.name}")
+        val mergedRulesFile = variantOutputDir.map { it.file("merged-rules.txt") }
+        val injectProFile = variantOutputDir.map { it.file("inject.pro") }
+
+        val injectTask = project.tasks.register(
+            "generateProguardShieldInject$capitalizedName",
+            GenerateInjectedRulesTask::class.java,
+        ) {
+            mergedRulesPath.set(mergedRulesFile.map { it.asFile.absolutePath })
+            outputProFile.set(injectProFile)
+        }
+
+        // Include the generated `.pro` in R8's input list.
+        variant.proguardFiles.add(injectTask.flatMap { it.outputProFile })
+
+        val minifyTaskName = "minify${capitalizedName}WithR8"
 
         val perConfigGuardTask = project.tasks.register(
             "proguardShield$capitalizedName",
-            ProGuardShieldTask::class.java,
+            ProGuardShieldListTask::class.java,
         ) {
+            dependsOn(minifyTaskName)
+            this.mergedRulesFile.set(mergedRulesFile)
             configurationName.set(config.configurationName)
+            projectPath.set(project.path)
             shouldBaseline.set(false)
             pluginVersion.set(ProGuardShieldPlugin.VERSION)
+            this.baselineDir.set(baselineDirectory)
+            this.filePrefix.set(filePrefix)
         }
         guardTask.configure { dependsOn(perConfigGuardTask) }
 
         val perConfigBaselineTask = project.tasks.register(
             "proguardShieldBaseline$capitalizedName",
-            ProGuardShieldTask::class.java,
+            ProGuardShieldListTask::class.java,
         ) {
+            dependsOn(minifyTaskName)
+            this.mergedRulesFile.set(mergedRulesFile)
             configurationName.set(config.configurationName)
+            projectPath.set(project.path)
             shouldBaseline.set(true)
             pluginVersion.set(ProGuardShieldPlugin.VERSION)
+            this.baselineDir.set(baselineDirectory)
+            this.filePrefix.set(filePrefix)
         }
         baselineTask.configure { dependsOn(perConfigBaselineTask) }
     }
