@@ -41,24 +41,27 @@ public class ProGuardShieldPlugin : Plugin<Project> {
             target.objects,
         )
 
-        // Approach 1: accurate (R8 runs, -printconfiguration).
+        // Evaluation-mode aggregates: run BOTH the accurate (approach 1)
+        // and fast (approach 2-B) paths. Baselines are written to two
+        // separate files so users can git-diff them across approaches.
         val guardTask = target.tasks.register(PROGUARD_SHIELD_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
-            description = "Guard against unintentional ProGuard/R8 rule changes (accurate, runs R8)"
+            description = "Guard against unintentional ProGuard/R8 rule changes (runs both accurate and fast checks)"
         }
         val baselineTask = target.tasks.register(PROGUARD_SHIELD_BASELINE_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
-            description = "Save current R8-merged ProGuard rules as baseline"
+            description = "Save current ProGuard/R8 rules to both baseline files (accurate + fast)"
         }
 
-        // Approach 2-B: fast (R8 does NOT run; reads rule inputs directly via AGP internal API).
+        // Approach-2-B-only aggregates: for users who want to exercise just
+        // the fast path (for example, local dev iterations that skip R8).
         val fastGuardTask = target.tasks.register(PROGUARD_SHIELD_FAST_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
-            description = "Guard against unintentional ProGuard/R8 rule changes (fast, skips R8)"
+            description = "Guard against unintentional ProGuard/R8 rule changes (fast path only, skips R8)"
         }
         val fastBaselineTask = target.tasks.register(PROGUARD_SHIELD_FAST_BASELINE_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
-            description = "Save current ProGuard rule inputs as baseline (skips R8)"
+            description = "Save current ProGuard rule inputs to the fast baseline file (skips R8)"
         }
 
         // Only application modules produce a fully merged ProGuard configuration that
@@ -75,9 +78,10 @@ public class ProGuardShieldPlugin : Plugin<Project> {
             )
         }
 
-        // Only the accurate task is attached to `check` — the fast task is opt-in
-        // during the approach 1 vs approach 2-B evaluation phase. The eventual
-        // release will keep only one path and attach it here.
+        // The top-level guard aggregate runs both approaches, so attaching
+        // it to `check` gives CI dual coverage: any drift detected by
+        // either approach fails the build. Users evaluating on a real
+        // project can commit both baseline files and let CI compare.
         attachToCheckTask(target, guardTask)
     }
 

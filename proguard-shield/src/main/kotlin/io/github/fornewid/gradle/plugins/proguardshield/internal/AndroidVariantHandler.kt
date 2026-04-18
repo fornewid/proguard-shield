@@ -215,5 +215,14 @@ internal object AndroidVariantHandler {
             this.rootDirPath.set(rootDir)
         }
         fastBaselineTask.configure { dependsOn(fastConfigBaselineTask) }
+
+        // ---- Evaluation mode: run BOTH approaches via the top-level
+        // aggregates so `./gradlew check` detects drift from either
+        // approach, and `./gradlew proguardShieldBaseline` generates
+        // both baseline files at once. The fast-only aggregates
+        // (`proguardShieldFast`, `proguardShieldFastBaseline`) are
+        // kept for users who want to run only approach 2-B.
+        guardTask.configure { dependsOn(fastConfigGuardTask) }
+        baselineTask.configure { dependsOn(fastConfigBaselineTask) }
     }
 }
