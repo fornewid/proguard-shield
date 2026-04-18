@@ -7,6 +7,8 @@ import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPluginExtension
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.GenerateInjectedRulesTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.ProGuardShieldListTask
+import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.ProGuardShieldFastListTask
+import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.R8TaskInputExtractor
 import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.OutputFileUtils
 import org.gradle.api.GradleException
 import org.gradle.api.Project
@@ -24,6 +26,8 @@ internal object AndroidVariantHandler {
         extension: ProGuardShieldPluginExtension,
         guardTask: TaskProvider<*>,
         baselineTask: TaskProvider<*>,
+        fastGuardTask: TaskProvider<*>,
+        fastBaselineTask: TaskProvider<*>,
     ) {
         val androidComponents = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java)
 
@@ -44,6 +48,8 @@ internal object AndroidVariantHandler {
                         variant = variant,
                         guardTask = guardTask,
                         baselineTask = baselineTask,
+                        fastGuardTask = fastGuardTask,
+                        fastBaselineTask = fastBaselineTask,
                     )
                 }
             }
@@ -95,6 +101,8 @@ internal object AndroidVariantHandler {
         variant: ApplicationVariant,
         guardTask: TaskProvider<*>,
         baselineTask: TaskProvider<*>,
+        fastGuardTask: TaskProvider<*>,
+        fastBaselineTask: TaskProvider<*>,
     ) {
         if (!variant.isMinifyEnabled) {
             throw GradleException(
@@ -107,6 +115,7 @@ internal object AndroidVariantHandler {
         val capitalizedName = config.configurationName.capitalize()
         val baselineDirectory = OutputFileUtils.proguardShieldDir(project, baselineDir)
         val filePrefix = "${config.configurationName}Rules"
+        val fastFilePrefix = "${config.configurationName}FastRules"
         val variantOutputDir = project.layout.buildDirectory.dir("proguardShield/${variant.name}")
         val mergedRulesFile = variantOutputDir.map { it.file("merged-rules.txt") }
         val injectProFile = variantOutputDir.map { it.file("inject.pro") }
@@ -124,6 +133,7 @@ internal object AndroidVariantHandler {
 
         val minifyTaskName = "minify${capitalizedName}WithR8"
 
+        // ---- Approach 1: accurate (runs R8) ----
         val perConfigGuardTask = project.tasks.register(
             "proguardShield$capitalizedName",
             ProGuardShieldListTask::class.java,
@@ -153,5 +163,38 @@ internal object AndroidVariantHandler {
             this.filePrefix.set(filePrefix)
         }
         baselineTask.configure { dependsOn(perConfigBaselineTask) }
+
+        // ---- Approach 2-B: fast (reads R8 inputs directly) ----
+        val ruleInputs = project.provider {
+            R8TaskInputExtractor.allRuleFiles(project.tasks.named(minifyTaskName).get())
+        }
+
+        val fastConfigGuardTask = project.tasks.register(
+            "proguardShieldFast$capitalizedName",
+            ProGuardShieldFastListTask::class.java,
+        ) {
+            this.ruleInputs.from(ruleInputs)
+            configurationName.set(config.configurationName)
+            projectPath.set(project.path)
+            shouldBaseline.set(false)
+            pluginVersion.set(ProGuardShieldPlugin.VERSION)
+            this.baselineDir.set(baselineDirectory)
+            this.filePrefix.set(fastFilePrefix)
+        }
+        fastGuardTask.configure { dependsOn(fastConfigGuardTask) }
+
+        val fastConfigBaselineTask = project.tasks.register(
+            "proguardShieldFastBaseline$capitalizedName",
+            ProGuardShieldFastListTask::class.java,
+        ) {
+            this.ruleInputs.from(ruleInputs)
+            configurationName.set(config.configurationName)
+            projectPath.set(project.path)
+            shouldBaseline.set(true)
+            pluginVersion.set(ProGuardShieldPlugin.VERSION)
+            this.baselineDir.set(baselineDirectory)
+            this.filePrefix.set(fastFilePrefix)
+        }
+        fastBaselineTask.configure { dependsOn(fastConfigBaselineTask) }
     }
 }
