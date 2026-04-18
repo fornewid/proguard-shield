@@ -169,6 +169,17 @@ internal object AndroidVariantHandler {
             R8TaskInputExtractor.allRuleFiles(project.tasks.named(minifyTaskName).get())
         }
 
+        // configurationFiles references the user-selected default file under
+        // build/intermediates/default_proguard_files/, which only exists after
+        // extractProguardFiles runs. AAPT2-generated rules similarly require
+        // their merge task. These task names are AGP-internal — if they ever
+        // change, Gradle surfaces a "Task not found" error at execution time
+        // and users can fall back to the accurate `proguardShield` task.
+        val fastExtraDepNames = listOf(
+            "extractProguardFiles",
+            "merge${capitalizedName}GeneratedProguardFiles",
+        )
+
         val rootDir = project.rootDir.absolutePath
 
         val fastConfigGuardTask = project.tasks.register(
@@ -176,6 +187,8 @@ internal object AndroidVariantHandler {
             ProGuardShieldFastListTask::class.java,
         ) {
             this.ruleInputs.from(ruleInputs)
+            fastExtraDepNames.forEach { dependsOn(it) }
+            dependsOn(injectTask)
             configurationName.set(config.configurationName)
             projectPath.set(project.path)
             shouldBaseline.set(false)
@@ -191,6 +204,8 @@ internal object AndroidVariantHandler {
             ProGuardShieldFastListTask::class.java,
         ) {
             this.ruleInputs.from(ruleInputs)
+            fastExtraDepNames.forEach { dependsOn(it) }
+            dependsOn(injectTask)
             configurationName.set(config.configurationName)
             projectPath.set(project.path)
             shouldBaseline.set(true)

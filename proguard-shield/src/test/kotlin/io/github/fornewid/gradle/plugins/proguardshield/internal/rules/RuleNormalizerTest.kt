@@ -38,16 +38,18 @@ class RuleNormalizerTest {
 
         val result = RuleNormalizer.normalize(input)
 
+        // Output is sorted — makes the baseline stable across R8 versions
+        // and lets the fast and accurate tasks produce bit-identical files.
         assertThat(result).isEqualTo(
             """
-            -keep class com.example.Foo
             -keep class com.example.Bar
+            -keep class com.example.Foo
             """.trimIndent(),
         )
     }
 
     @Test
-    fun `preserves rule order`() {
+    fun `sorts rules alphabetically`() {
         val input = """
             -keep class B
             -keep class A
@@ -57,8 +59,8 @@ class RuleNormalizerTest {
         val result = RuleNormalizer.normalizeLines(input)
 
         assertThat(result).containsExactly(
-            "-keep class B",
             "-keep class A",
+            "-keep class B",
             "-keep class C",
         ).inOrder()
     }
