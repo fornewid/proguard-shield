@@ -176,6 +176,13 @@ internal object AndroidVariantHandler {
             ProGuardShieldFastListTask::class.java,
         ) {
             this.ruleInputs.from(ruleInputs)
+            // configurationFiles references the user-selected default file under
+            // build/intermediates/default_proguard_files/, which only exists after
+            // extractProguardFiles runs. AAPT2-generated rules similarly require
+            // their merge task.
+            dependsOn("extractProguardFiles")
+            dependsOn("merge${capitalizedName}GeneratedProguardFiles")
+            dependsOn(injectTask)
             configurationName.set(config.configurationName)
             projectPath.set(project.path)
             shouldBaseline.set(false)
@@ -191,6 +198,13 @@ internal object AndroidVariantHandler {
             ProGuardShieldFastListTask::class.java,
         ) {
             this.ruleInputs.from(ruleInputs)
+            // configurationFiles references the user-selected default file under
+            // build/intermediates/default_proguard_files/, which only exists after
+            // extractProguardFiles runs. AAPT2-generated rules similarly require
+            // their merge task.
+            dependsOn("extractProguardFiles")
+            dependsOn("merge${capitalizedName}GeneratedProguardFiles")
+            dependsOn(injectTask)
             configurationName.set(config.configurationName)
             projectPath.set(project.path)
             shouldBaseline.set(true)

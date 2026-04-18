@@ -17,6 +17,7 @@ internal object RuleNormalizer {
             .filter { it.isNotEmpty() }
             .filter { !it.startsWith("-printconfiguration") }
             .toList()
+            .sorted()
     }
 
     private fun stripInlineComment(line: String): String {
