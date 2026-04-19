@@ -21,6 +21,8 @@ The `GH_PAT` also needs a repository ruleset bypass for **Repository admin** so 
 
 The release workflow uses a GitHub **environment** named `release` (see `release.yml`). Create it in the repo settings before the first release. Adding a "Required reviewers" protection rule on that environment is optional but useful as a final gate before the release PR is opened.
 
+Note that this gate sits on **`Create Release PR`** (release.yml), not on the actual `Publish` job (publish.yml). The publish workflow runs automatically once the release PR merges into `main`, with no additional approval step.
+
 ## Normal release flow
 
 1. **Trigger the release PR.** Run the `Create Release PR` workflow from GitHub Actions (manual dispatch):
@@ -60,6 +62,6 @@ Expected output: `implementation-class=io.github.fornewid.gradle.plugins.proguar
 
 ## If something goes wrong
 
-- **Publish workflow fails mid-step** (e.g. Plugin Portal rejected but Maven Central already accepted): re-run the failed step. Publishing is idempotent at the artifact level; Central refuses duplicate uploads of the same version, Plugin Portal likewise.
+- **Publish workflow fails before the Central upload**: safe to re-run the workflow. Central has received nothing yet.
+- **Publish workflow fails after the Central upload** (e.g. Plugin Portal rejected, or the tag push / SNAPSHOT bump failed): **do not re-run the workflow.** Maven Central refuses duplicate uploads of the same version, so a retry will just fail on the first step. Recover manually: publish to the Plugin Portal from a clean local checkout (`./gradlew :proguard-shield:publishPlugins`), then `git tag <version> && git push origin <version>`, then edit `proguard-shield/gradle.properties` to bump `VERSION_NAME` and push the bump to `main`.
 - **`GH_PAT` rejects the SNAPSHOT bump push**: verify the Ruleset bypass still lists the PAT's user under *Repository admin*.
-- **Version tag already exists but the publish succeeded**: the tag was created before Maven Central accepted the upload. Delete the tag locally + remotely and re-run `Publish`.
