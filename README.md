@@ -68,6 +68,12 @@ Commit both files to version control.
 # If either detects a rule change against its baseline, the build fails.
 ```
 
+If the accurate path fails first, Gradle stops and the fast path is skipped. To force both to run so you can compare their outputs, add `--continue`:
+
+```bash
+./gradlew :app:check --continue
+```
+
 ### Re-baseline after an intentional rule change
 
 Same as first-time baseline — overwrites both files.

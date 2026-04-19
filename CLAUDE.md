@@ -53,7 +53,7 @@ The repo is a Gradle **included build**: the root project pulls in the plugin mo
 
 ### Plugin Entry
 
-`ProGuardShieldPlugin` (package `io.github.fornewid.gradle.plugins.proguardshield`) — currently a no-op; will register tasks via an `AndroidVariantHandler` that hooks into AGP's `onVariants` once feature development begins.
+`ProGuardShieldPlugin` (package `io.github.fornewid.gradle.plugins.proguardshield`) registers four aggregate tasks (`proguardShield`, `proguardShieldBaseline`, `proguardShieldFast`, `proguardShieldFastBaseline`) and delegates per-variant task registration to `internal.AndroidVariantHandler`, which hooks AGP's `onVariants` and wires the accurate + fast per-variant tasks. The combined aggregates (`proguardShield`, `proguardShieldBaseline`) depend on both paths so `check` exercises parity on every build; the `fast` aggregates are kept for users who want to run only approach 2-B.
 
 ### References
 
