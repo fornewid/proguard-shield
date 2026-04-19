@@ -94,9 +94,10 @@ Same as first-time baseline — overwrites both files.
 - [x] Approach 2-B: R8 task input interception
 - [x] Parity — both approaches produce bit-identical baselines
 - [x] 0.0.1 evaluation release — both run side-by-side
+- [x] GradleRunner integration tests — baseline + drift + parity + DSL validation
+- [x] AGP version matrix — integration tests run against every supported AGP on CI
 - [ ] Pick one path based on user feedback, drop the other
 - [ ] Forbidden-rule pattern check (e.g. overly broad `-keep class **`)
-- [ ] GradleRunner integration tests
 - [ ] Publish to Maven Central / Gradle Plugin Portal
 
 ## Related

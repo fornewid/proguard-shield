@@ -105,11 +105,19 @@ gradlePlugin.testSourceSets(sourceSets.named("gradleTest").get())
 
 // Pass the plugin JAR path to gradleTest for buildscript classpath injection.
 // We avoid withPluginClasspath() due to AGP classloader isolation issues.
+//
+// AGP version the integration tests run against. Override with
+//   ./gradlew :proguard-shield:gradleTest -PagpVersion=8.0.0
+// to sweep a matrix (see CI workflow).
+val agpVersionForTests: String =
+  (project.findProperty("agpVersion") as? String) ?: libs.versions.agp.get()
+
 afterEvaluate {
   val jarTask = tasks.named("jar", Jar::class.java).get()
   tasks.named("gradleTest", Test::class.java) {
     dependsOn(jarTask)
     systemProperty("pluginJar", jarTask.archiveFile.get().asFile.absolutePath)
+    systemProperty("agpVersion", agpVersionForTests)
   }
 }
 

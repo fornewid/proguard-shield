@@ -37,5 +37,34 @@ jobs:
           fi
           echo "Release version verified: $VERSION"
 
+      # gradleTest is covered by the dedicated agp-matrix job below, so skip
+      # it here to avoid running the default AGP twice.
       - name: Build and check
-        run: ./gradlew :proguard-shield:check --stacktrace
+        run: ./gradlew :proguard-shield:check -x :proguard-shield:gradleTest --stacktrace
+
+  agp-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Lowest supported AGP (matches `compileOnly` in build.gradle.kts) +
+        # current tracked version (libs.versions.toml). Expand when a new
+        # AGP major lands or a compatibility issue is reported.
+        agp: [ "8.0.0", "8.8.0" ]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Copy CI gradle.properties
+        run: mkdir -p ~/.gradle && cp .github/ci-gradle.properties ~/.gradle/gradle.properties
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Integration tests against AGP ${{ matrix.agp }}
+        run: ./gradlew :proguard-shield:gradleTest -PagpVersion=${{ matrix.agp }} --stacktrace
