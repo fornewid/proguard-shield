@@ -19,6 +19,8 @@ The publish workflow needs these repository secrets. All but `GH_PAT` come from 
 
 The `GH_PAT` also needs a repository ruleset bypass for **Repository admin** so the SNAPSHOT bump commit can push directly to `main` without going through a PR.
 
+The release workflow uses a GitHub **environment** named `release` (see `release.yml`). Create it in the repo settings before the first release. Adding a "Required reviewers" protection rule on that environment is optional but useful as a final gate before the release PR is opened.
+
 ## Normal release flow
 
 1. **Trigger the release PR.** Run the `Create Release PR` workflow from GitHub Actions (manual dispatch):
@@ -34,14 +36,18 @@ The `GH_PAT` also needs a repository ruleset bypass for **Repository admin** so 
    - Bumps `VERSION_NAME` to the next `-SNAPSHOT` and pushes that commit to `main`.
 5. `Release Drafter` turns the tag into a GitHub Release with the accumulated changelog.
 
+The automatic SNAPSHOT bump in step 4 always increments the patch digit (`0.0.1` → `0.0.2-SNAPSHOT`). If the next release should be a minor or major bump, edit `proguard-shield/gradle.properties` manually after the publish workflow finishes.
+
 ## Smoke test before cutting a release
 
 Publish locally to catch POM / descriptor / resource issues before pushing to Central:
 
 ```bash
-./gradlew :proguard-shield:publishToMavenLocal -x signMavenPublication
+./gradlew :proguard-shield:publishToMavenLocal
 find ~/.m2/repository/io/github/fornewid/proguard-shield -type f
 ```
+
+`signAllPublications()` auto-skips its tasks when `ORG_GRADLE_PROJECT_signingInMemoryKey*` env vars are absent, so `publishToMavenLocal` works locally without real GPG keys.
 
 Inspect the generated `proguard-shield-<version>.pom` and the plugin descriptor inside the jar:
 
