@@ -100,6 +100,10 @@ Same as first-time baseline — overwrites both files.
 - [ ] Forbidden-rule pattern check (e.g. overly broad `-keep class **`)
 - [ ] Publish to Maven Central / Gradle Plugin Portal
 
+## Releasing
+
+See [`RELEASING.md`](RELEASING.md) for the release process and required GitHub secrets.
+
 ## Related
 
 - [manifest-shield](https://github.com/fornewid/manifest-shield) — sibling plugin for Android manifest changes. proguard-shield mirrors its structure.

@@ -43,7 +43,7 @@ gradlePlugin {
       id = "io.github.fornewid.proguard-shield"
       implementationClass = "io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin"
       displayName = "ProGuard Shield"
-      description = "A Gradle plugin that detects unintentional changes to Android's merged ProGuard/R8 rules and forbidden rule patterns."
+      description = "A Gradle plugin that detects unintentional changes to Android's merged ProGuard/R8 rules."
       tags.set(listOf("android", "proguard", "r8", "security", "gradle-plugin"))
     }
   }

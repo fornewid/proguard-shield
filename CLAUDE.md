@@ -61,12 +61,10 @@ The repo is a Gradle **included build**: the root project pulls in the plugin mo
 
 ## Publishing
 
-- **Maven Central** via Sonatype Central Portal (`SonatypeHost.CENTRAL_PORTAL`).
-- **Gradle Plugin Portal** via `com.gradle.plugin-publish` plugin.
-- **In-memory GPG signing** via `ORG_GRADLE_PROJECT_signingInMemoryKey*` environment variables.
-- **Workflows**:
-  - `build.yml` — Triggered on push to `main` and all pull requests. Runs `:proguard-shield:check`.
-  - `publish.yml` — Triggered on main push. Skips SNAPSHOT versions. Publishes to Maven Central + Gradle Plugin Portal, creates a git tag, bumps to next SNAPSHOT.
-  - `release.yml` — Manual trigger (`workflow_dispatch`). Creates a release PR that removes `-SNAPSHOT` from version.
-  - `release-drafter.yml` — Updates draft release notes on every main push.
-- **Branch protection bypass**: Uses `GH_PAT` (Fine-grained PAT) + Ruleset bypass for "Repository admin" to allow SNAPSHOT bump commits.
+Distribution targets: Maven Central (via Sonatype Central Portal) and the Gradle Plugin Portal. The full release runbook — required GitHub secrets, workflow triggers, smoke tests — lives in [`RELEASING.md`](RELEASING.md).
+
+Quick reference of the four workflows:
+- `build.yml` — on push to `main` + every PR. Runs `:proguard-shield:check` plus an AGP version matrix.
+- `publish.yml` — on push to `main`. Skips `-SNAPSHOT` versions. Publishes to both registries, tags the commit, bumps to the next `-SNAPSHOT`.
+- `release.yml` — manual `workflow_dispatch`. Opens a PR that strips `-SNAPSHOT`.
+- `release-drafter.yml` — updates the draft GitHub Release on every main push / tag.
