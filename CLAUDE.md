@@ -4,15 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Status
 
-**Bootstrap phase.** Repo structure mirrors the sibling project [`manifest-shield`](https://github.com/fornewid/manifest-shield). The plugin entry class (`ProGuardShieldPlugin`) is intentionally empty — real functionality will land in follow-up PRs.
+**0.0.1 evaluation release.** Repo structure mirrors the sibling project [`manifest-shield`](https://github.com/fornewid/manifest-shield). Two implementations of the same feature ship side-by-side; users run both on real projects so we can confirm they stay bit-identical before dropping one.
 
-Current roadmap (see `README.md`):
-1. Plugin module skeleton (extension DSL, variant handler).
-2. Approach 1 prototype: `-printconfiguration` baseline + diff.
-3. Approach 2-B prototype: R8 task input interception (AGP internal API via reflection).
-4. Forbidden pattern checker (regex-based).
+- **Approach 1 (accurate)** — `proguardShield{Variant}`: runs R8 with `-printconfiguration`. Uses only public AGP API. Slow.
+- **Approach 2-B (fast)** — `proguardShieldFast{Variant}`: reads `ProguardConfigurableTask.configurationFiles` + `generatedProguardFile` via reflection, skips R8 entirely. Much faster but depends on AGP internal class names.
 
-The approach for v0: two strategies (`-printconfiguration` + R8 task input interception via reflection) will be implemented as swappable prototypes in follow-up PRs so the author can benchmark and pick one for the final release.
+Both paths produce the **same baseline** (`RuleNormalizer` sorts, so R8's output order doesn't matter). The aggregate `proguardShield` / `proguardShieldBaseline` tasks run both paths, and `check` depends on the combined aggregate — any drift from either approach fails the build. Baseline files: `<baselineDir>/<variant>Rules.txt` (accurate) + `<baselineDir>/<variant>FastRules.txt` (fast). Commit both.
+
+Remaining roadmap:
+- Pick one path and remove the other based on real-project user feedback.
+- Forbidden-rule pattern check (e.g. overly broad `-keep class **`).
+- GradleRunner integration tests + AGP 8.0 / 8.x / 9.x version matrix.
+- Publish to Maven Central / Gradle Plugin Portal.
 
 ## Build & Test Commands
 
@@ -50,7 +53,7 @@ The repo is a Gradle **included build**: the root project pulls in the plugin mo
 
 ### Plugin Entry
 
-`ProGuardShieldPlugin` (package `io.github.fornewid.gradle.plugins.proguardshield`) — currently a no-op; will register tasks via an `AndroidVariantHandler` that hooks into AGP's `onVariants` once feature development begins.
+`ProGuardShieldPlugin` (package `io.github.fornewid.gradle.plugins.proguardshield`) registers four aggregate tasks (`proguardShield`, `proguardShieldBaseline`, `proguardShieldFast`, `proguardShieldFastBaseline`) and delegates per-variant task registration to `internal.AndroidVariantHandler`, which hooks AGP's `onVariants` and wires the accurate + fast per-variant tasks. The combined aggregates (`proguardShield`, `proguardShieldBaseline`) depend on both paths so `check` exercises parity on every build; the `fast` aggregates are kept for users who want to run only approach 2-B.
 
 ### References
 
