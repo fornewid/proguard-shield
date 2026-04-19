@@ -81,8 +81,10 @@ internal class ProGuardShieldPluginTest {
             build(project, ":app:proguardShieldBaseline")
 
             val result = build(project, ":app:proguardShield")
-            assertThat(result.output).contains("proguardShieldRelease")
-            assertThat(result.output).contains("proguardShieldFastRelease")
+            // task() returns non-null only if the task actually appeared in
+            // the build — robust against log buffering / UP-TO-DATE skips.
+            assertThat(result.task(":app:proguardShieldRelease")).isNotNull()
+            assertThat(result.task(":app:proguardShieldFastRelease")).isNotNull()
         }
     }
 

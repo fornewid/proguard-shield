@@ -37,16 +37,19 @@ jobs:
           fi
           echo "Release version verified: $VERSION"
 
+      # gradleTest is covered by the dedicated agp-matrix job below, so skip
+      # it here to avoid running the default AGP twice.
       - name: Build and check
-        run: ./gradlew :proguard-shield:check --stacktrace
+        run: ./gradlew :proguard-shield:check -x :proguard-shield:gradleTest --stacktrace
 
   agp-matrix:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # Keep the set small: lowest supported AGP, and current tracked version.
-        # Expand when a new AGP major lands or a compatibility issue is reported.
+        # Lowest supported AGP (matches `compileOnly` in build.gradle.kts) +
+        # current tracked version (libs.versions.toml). Expand when a new
+        # AGP major lands or a compatibility issue is reported.
         agp: [ "8.0.0", "8.8.0" ]
     steps:
       - uses: actions/checkout@v6
