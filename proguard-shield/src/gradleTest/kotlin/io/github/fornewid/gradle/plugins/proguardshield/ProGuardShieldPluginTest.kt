@@ -63,7 +63,7 @@ internal class ProGuardShieldPluginTest {
     fun `fast baseline task does not run the R8 task`() {
         AndroidProject().use { project ->
             val result = build(project, ":app:proguardShieldFastBaselineRelease")
-            assertThat(result.output).doesNotContain("minifyReleaseWithR8")
+            assertThat(result.task(":app:minifyReleaseWithR8")).isNull()
         }
     }
 
@@ -71,7 +71,7 @@ internal class ProGuardShieldPluginTest {
     fun `accurate baseline task runs the R8 task`() {
         AndroidProject().use { project ->
             val result = build(project, ":app:proguardShieldBaselineRelease")
-            assertThat(result.output).contains("minifyReleaseWithR8")
+            assertThat(result.task(":app:minifyReleaseWithR8")).isNotNull()
         }
     }
 

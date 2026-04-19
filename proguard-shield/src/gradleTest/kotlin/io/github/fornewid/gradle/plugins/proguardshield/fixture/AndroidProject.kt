@@ -58,7 +58,10 @@ internal class AndroidProject(
             ?: System.getenv("ANDROID_SDK_ROOT")
             ?: findSdkDirFromLocalProperties()
             ?: error("ANDROID_HOME or ANDROID_SDK_ROOT must be set")
-        dir.resolve("local.properties").writeText("sdk.dir=$androidHome")
+        // Properties files treat `\` as an escape character, so paths like
+        // C:\Users\... must be normalized to forward slashes on Windows.
+        // Gradle/AGP accept either form on every OS.
+        dir.resolve("local.properties").writeText("sdk.dir=${androidHome.replace("\\", "/")}")
 
         val appDir = dir.resolve("app").apply { mkdirs() }
 
