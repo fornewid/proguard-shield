@@ -1,35 +1,53 @@
 package io.github.fornewid.gradle.plugins.proguardshield.internal.forbidden
 
 import com.google.common.truth.Truth.assertThat
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class ForbiddenPatternCheckerTest {
 
     @Test
     fun `empty patterns produces no violations`() {
-        val rules = listOf("-keep class com.example.Foo", "-dontobfuscate")
+        val units = listOf(
+            listOf("-keep class com.example.Foo"),
+            listOf("-dontobfuscate"),
+        )
 
-        val violations = ForbiddenPatternChecker.check(rules, emptyList())
+        val violations = ForbiddenPatternChecker.check(units, emptyList())
 
         assertThat(violations).isEmpty()
     }
 
     @Test
-    fun `empty rules produces no violations`() {
+    fun `empty units produces no violations`() {
         val violations = ForbiddenPatternChecker.check(emptyList(), listOf("-dontobfuscate"))
 
         assertThat(violations).isEmpty()
     }
 
     @Test
-    fun `single substring match`() {
-        val rules = listOf(
-            "-keep class com.example.Foo",
-            "-dontobfuscate",
-            "-dontwarn javax.annotation.**",
+    fun `blank pattern strings are silently dropped`() {
+        // A stray "" would otherwise containsMatchIn every header and report
+        // every rule as a violation.
+        val units = listOf(
+            listOf("-keep class com.example.Foo"),
+            listOf("-dontwarn javax.annotation.**"),
         )
 
-        val violations = ForbiddenPatternChecker.check(rules, listOf("-dontobfuscate"))
+        val violations = ForbiddenPatternChecker.check(units, listOf("", "   "))
+
+        assertThat(violations).isEmpty()
+    }
+
+    @Test
+    fun `single pattern match against header`() {
+        val units = listOf(
+            listOf("-keep class com.example.Foo"),
+            listOf("-dontobfuscate"),
+            listOf("-dontwarn javax.annotation.**"),
+        )
+
+        val violations = ForbiddenPatternChecker.check(units, listOf("-dontobfuscate"))
 
         assertThat(violations).hasSize(1)
         assertThat(violations[0].pattern).isEqualTo("-dontobfuscate")
@@ -37,14 +55,42 @@ class ForbiddenPatternCheckerTest {
     }
 
     @Test
-    fun `regex with whitespace metachars matches one or more spaces`() {
-        val rules = listOf(
-            "-keep class com.example.Foo",
-            "-keep  class  **",
-            "-keep class com.example.Bar",
+    fun `body lines do not match — only the unit header is tested`() {
+        // The body line `*;` would superficially match a `\*;` pattern, but
+        // forbidden checking targets unit headers, so a keep block whose
+        // body contains `*;` does not trip a `*;` pattern.
+        val units = listOf(
+            listOf("-keep class com.example.Foo {", "*;", "}"),
+            listOf("-keep class com.example.Bar"),
         )
 
-        val violations = ForbiddenPatternChecker.check(rules, listOf("-keep\\s+class\\s+\\*\\*"))
+        val violations = ForbiddenPatternChecker.check(units, listOf("\\*;"))
+
+        assertThat(violations).isEmpty()
+    }
+
+    @Test
+    fun `header-matching violation reports the entire unit verbatim`() {
+        val units = listOf(
+            listOf("-keep class ** {", "*;", "}"),
+            listOf("-keep class com.example.Bar"),
+        )
+
+        val violations = ForbiddenPatternChecker.check(units, listOf("-keep\\s+class\\s+\\*\\*"))
+
+        assertThat(violations).hasSize(1)
+        assertThat(violations[0].matchedRules).containsExactly("-keep class ** {\n*;\n}")
+    }
+
+    @Test
+    fun `regex with whitespace metachars matches one or more spaces`() {
+        val units = listOf(
+            listOf("-keep class com.example.Foo"),
+            listOf("-keep  class  **"),
+            listOf("-keep class com.example.Bar"),
+        )
+
+        val violations = ForbiddenPatternChecker.check(units, listOf("-keep\\s+class\\s+\\*\\*"))
 
         assertThat(violations).hasSize(1)
         assertThat(violations[0].matchedRules).containsExactly("-keep  class  **")
@@ -52,15 +98,15 @@ class ForbiddenPatternCheckerTest {
 
     @Test
     fun `multiple patterns each report independently`() {
-        val rules = listOf(
-            "-keep class ** { *; }",
-            "-dontobfuscate",
-            "-dontshrink",
-            "-keep class com.example.Foo",
+        val units = listOf(
+            listOf("-keep class ** { *; }"),
+            listOf("-dontobfuscate"),
+            listOf("-dontshrink"),
+            listOf("-keep class com.example.Foo"),
         )
 
         val violations = ForbiddenPatternChecker.check(
-            rules,
+            units,
             listOf("-keep\\s+class\\s+\\*\\*", "-dontobfuscate", "-dontshrink"),
         )
 
@@ -69,41 +115,42 @@ class ForbiddenPatternCheckerTest {
             "-dontobfuscate",
             "-dontshrink",
         ).inOrder()
-        assertThat(violations[0].matchedRules).containsExactly("-keep class ** { *; }")
-        assertThat(violations[1].matchedRules).containsExactly("-dontobfuscate")
-        assertThat(violations[2].matchedRules).containsExactly("-dontshrink")
     }
 
     @Test
     fun `same pattern with multiple matches groups them under one violation`() {
-        val rules = listOf(
-            "-keep class ** extends Activity",
-            "-keep class **.R$* { *; }",
-            "-keep class com.example.Foo",
+        val units = listOf(
+            listOf("-keep class ** extends Activity"),
+            listOf("-keep class **.R\$* { *; }"),
+            listOf("-keep class com.example.Foo"),
         )
 
-        val violations = ForbiddenPatternChecker.check(rules, listOf("-keep\\s+class\\s+\\*\\*"))
+        val violations = ForbiddenPatternChecker.check(units, listOf("-keep\\s+class\\s+\\*\\*"))
 
         assertThat(violations).hasSize(1)
         assertThat(violations[0].matchedRules).containsExactly(
             "-keep class ** extends Activity",
-            "-keep class **.R$* { *; }",
+            "-keep class **.R\$* { *; }",
         )
     }
 
     @Test
-    fun `non-matching patterns produce no violations`() {
-        val rules = listOf("-keep class com.example.Foo", "-dontwarn java.**")
+    fun `invalid regex throws with the offending pattern in the message`() {
+        val units = listOf(listOf("-keep class com.example.Foo"))
 
-        val violations = ForbiddenPatternChecker.check(rules, listOf("-dontobfuscate"))
-
-        assertThat(violations).isEmpty()
+        val ex = assertThrows(IllegalArgumentException::class.java) {
+            ForbiddenPatternChecker.check(units, listOf("[unclosed"))
+        }
+        assertThat(ex.message).contains("[unclosed")
     }
 
     @Test
     fun `failure message lists pattern then matched rules`() {
         val violations = ForbiddenPatternChecker.check(
-            listOf("-dontobfuscate", "-keep class **.R$* { *; }"),
+            listOf(
+                listOf("-dontobfuscate"),
+                listOf("-keep class **.R\$* { *; }"),
+            ),
             listOf("-dontobfuscate", "-keep\\s+class\\s+\\*\\*"),
         )
 

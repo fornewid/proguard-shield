@@ -19,7 +19,17 @@ internal object RuleNormalizer {
 
     fun normalize(raw: String): String = normalizeLines(raw).joinToString("\n")
 
-    fun normalizeLines(raw: String): List<String> {
+    fun normalizeLines(raw: String): List<String> = normalizeUnits(raw).flatten()
+
+    /**
+     * Same parse + sort as [normalizeLines] but returns each rule unit as a
+     * separate inner list. The first element of every inner list is the unit's
+     * header (the line that starts with `-`), followed by any continuation /
+     * block-body lines. Useful when a caller needs to reason about a rule's
+     * boundary — e.g. forbidden-pattern matching wants to test the header line
+     * in isolation, not the body.
+     */
+    fun normalizeUnits(raw: String): List<List<String>> {
         return parseUnits(raw)
             // Sort by header first (the actionable identity of the rule),
             // then by full body content for a deterministic tie-break.
@@ -29,7 +39,6 @@ internal object RuleNormalizer {
             // keep input order — which differs between the accurate and
             // fast paths and breaks bit-identical parity.
             .sortedWith(compareBy({ it.first() }, { it.joinToString("\n") }))
-            .flatten()
     }
 
     /**

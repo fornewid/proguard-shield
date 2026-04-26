@@ -99,13 +99,17 @@ internal abstract class ProGuardShieldFastListTask : DefaultTask() {
             .joinToString("\n") { file ->
                 if (file.exists() && file.isFile) file.readText() else ""
             }
-        val normalizedLines = RuleNormalizer.normalizeLines(concatenated)
-        val normalized = normalizedLines.joinToString("\n")
+        val units = RuleNormalizer.normalizeUnits(concatenated)
+        val normalized = units.flatten().joinToString("\n")
 
         // Forbidden-pattern check first — strongest signal, no rebaseline can
         // silence it. Both the accurate and fast tasks run the identical check
         // on the identical normalized inputs, preserving parity.
-        val violations = ForbiddenPatternChecker.check(normalizedLines, forbiddenPatterns.get())
+        val violations = try {
+            ForbiddenPatternChecker.check(units, forbiddenPatterns.get())
+        } catch (e: IllegalArgumentException) {
+            throw GradleException(e.message ?: "Invalid forbiddenPatterns regex", e)
+        }
         if (violations.isNotEmpty()) {
             val message = ForbiddenPatternChecker.renderFailureMessage(path, configName, violations)
             logger.error(message)
