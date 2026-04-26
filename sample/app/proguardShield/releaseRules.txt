@@ -1,4 +1,3 @@
-*** get*();
 -allowaccessmodification
 -dontnote android.net.http.**
 -dontnote android.support.**
@@ -18,9 +17,12 @@
 -dontwarn kotlin.annotation.Retention
 -dontwarn kotlin.annotation.Target
 -keep !interface * implements androidx.lifecycle.LifecycleObserver {
+}
 -keep @android.support.annotation.Keep class * {*;}
 -keep @androidx.annotation.Keep class * {*;}
 -keep class * implements androidx.lifecycle.GeneratedAdapter {
+<init>(...);
+}
 -keep class * implements androidx.versionedparcelable.VersionedParcelable
 -keep class android.support.annotation.Keep
 -keep class androidx.core.app.CoreComponentFactory { <init>(); }
@@ -34,90 +36,88 @@
 -keep,allowobfuscation @interface androidx.annotation.Keep
 -keepattributes *Annotation*
 -keepattributes AnnotationDefault,
--keepattributes SourceFile,LineNumberTable
--keepclasseswithmembernames,includedescriptorclasses class * {
--keepclasseswithmembers class * {
--keepclasseswithmembers class * {
--keepclasseswithmembers class * {
--keepclasseswithmembers class * {
--keepclasseswithmembers class * {
--keepclasseswithmembers class * {
--keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.app.NotificationCompat$*$Api*Impl {
--keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.os.UserHandleCompat$Api*Impl {
--keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.view.ViewCompat$Api* {
--keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.view.WindowInsetsCompat$*Impl* {
--keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.widget.EdgeEffectCompat$Api*Impl {
--keepclassmembers class * extends android.app.Activity {
--keepclassmembers class * implements android.os.Parcelable {
--keepclassmembers class * {
--keepclassmembers class ** {
--keepclassmembers class androidx.lifecycle.ReportFragment$LifecycleCallbacks { *; }
--keepclassmembers enum * {
--keepclassmembers enum androidx.lifecycle.Lifecycle$Event {
--keepclassmembers public class * extends android.view.View {
--keepclassmembers,allowobfuscation class * extends androidx.lifecycle.AndroidViewModel {
--keepclassmembers,allowobfuscation class * extends androidx.lifecycle.AndroidViewModel {
--keepclassmembers,allowobfuscation class * extends androidx.lifecycle.ViewModel {
--keepclassmembers,allowobfuscation class * extends androidx.lifecycle.ViewModel {
--keepclassmembers,allowobfuscation class * implements androidx.savedstate.SavedStateRegistry$AutoRecreated {
--keepclassmembers,allowobfuscation class * {
-<fields>;
-<init>();
-<init>();
-<init>(...);
-<init>(android.app.Application);
-<init>(android.app.Application,androidx.lifecycle.SavedStateHandle);
-<init>(androidx.lifecycle.SavedStateHandle);
-<methods>;
-<methods>;
-<methods>;
-<methods>;
-<methods>;
-@android.support.annotation.Keep <fields>;
-@android.support.annotation.Keep <init>(...);
-@android.support.annotation.Keep <methods>;
-@android.webkit.JavascriptInterface <methods>;
-@androidx.annotation.DoNotInline <methods>;
-@androidx.annotation.Keep <fields>;
-@androidx.annotation.Keep <init>(...);
-@androidx.annotation.Keep <methods>;
-@androidx.lifecycle.OnLifecycleEvent *;
 EnclosingMethod,
 InnerClasses,
 RuntimeVisibleAnnotations,
 RuntimeVisibleParameterAnnotations,
 RuntimeVisibleTypeAnnotations,
 Signature
+-keepattributes SourceFile,LineNumberTable
+-keepclasseswithmembernames,includedescriptorclasses class * {
 native <methods>;
-public static ** valueOf(java.lang.String);
-public static **[] values();
-public static final ** CREATOR;
+}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <fields>;
+}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <init>(...);
+}
+-keepclasseswithmembers class * {
+@android.support.annotation.Keep <methods>;
+}
+-keepclasseswithmembers class * {
+@androidx.annotation.Keep <fields>;
+}
+-keepclasseswithmembers class * {
+@androidx.annotation.Keep <init>(...);
+}
+-keepclasseswithmembers class * {
+@androidx.annotation.Keep <methods>;
+}
+-keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.app.NotificationCompat$*$Api*Impl {
+<methods>;
+}
+-keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.os.UserHandleCompat$Api*Impl {
+<methods>;
+}
+-keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.view.ViewCompat$Api* {
+<methods>;
+}
+-keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.view.WindowInsetsCompat$*Impl* {
+<methods>;
+}
+-keepclassmembernames,allowobfuscation,allowshrinking class androidx.core.widget.EdgeEffectCompat$Api*Impl {
+<methods>;
+}
+-keepclassmembers class * extends android.app.Activity {
 public void *(android.view.View);
+}
+-keepclassmembers class * implements android.os.Parcelable {
+public static final ** CREATOR;
+}
+-keepclassmembers class * {
+@android.webkit.JavascriptInterface <methods>;
+}
+-keepclassmembers class ** {
+@androidx.lifecycle.OnLifecycleEvent *;
+}
+-keepclassmembers class androidx.lifecycle.ReportFragment$LifecycleCallbacks { *; }
+-keepclassmembers enum * {
+public static **[] values();
+public static ** valueOf(java.lang.String);
+}
+-keepclassmembers enum androidx.lifecycle.Lifecycle$Event {
+<fields>;
+}
+-keepclassmembers public class * extends android.view.View {
 void set*(***);
+*** get*();
 }
+-keepclassmembers,allowobfuscation class * extends androidx.lifecycle.AndroidViewModel {
+<init>(android.app.Application);
 }
+-keepclassmembers,allowobfuscation class * extends androidx.lifecycle.AndroidViewModel {
+<init>(android.app.Application,androidx.lifecycle.SavedStateHandle);
 }
+-keepclassmembers,allowobfuscation class * extends androidx.lifecycle.ViewModel {
+<init>();
 }
+-keepclassmembers,allowobfuscation class * extends androidx.lifecycle.ViewModel {
+<init>(androidx.lifecycle.SavedStateHandle);
 }
+-keepclassmembers,allowobfuscation class * implements androidx.savedstate.SavedStateRegistry$AutoRecreated {
+<init>();
 }
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
+-keepclassmembers,allowobfuscation class * {
+@androidx.annotation.DoNotInline <methods>;
 }
