@@ -1,7 +1,6 @@
 package io.github.fornewid.gradle.plugins.proguardshield.internal.verify
 
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
-import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.ColorTerminal
 import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.Tasks.declareCompatibilities
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -62,10 +61,21 @@ internal abstract class ProGuardShieldVerifyParityTask : DefaultTask() {
             return
         }
 
-        val accurateLines = accurateText.lines()
-        val fastLines = fastText.lines()
-        val onlyAccurate = accurateLines.filterNot { it in fastLines }
-        val onlyFast = fastLines.filterNot { it in accurateLines }
+        // Multiset diff so a duplicate-count change (e.g. baseline has 2,
+        // actual has 1) is reported instead of being lost to set semantics.
+        // Same shape as RuleDiff for consistency.
+        val accurateCounts = accurateText.lines().groupingBy { it }.eachCount()
+        val fastCounts = fastText.lines().groupingBy { it }.eachCount()
+        val onlyAccurate = mutableListOf<String>()
+        val onlyFast = mutableListOf<String>()
+        for (key in accurateCounts.keys + fastCounts.keys) {
+            val a = accurateCounts[key] ?: 0
+            val f = fastCounts[key] ?: 0
+            when {
+                a > f -> repeat(a - f) { onlyAccurate.add(key) }
+                f > a -> repeat(f - a) { onlyFast.add(key) }
+            }
+        }
 
         val message = buildString {
             appendLine(
@@ -82,11 +92,13 @@ internal abstract class ProGuardShieldVerifyParityTask : DefaultTask() {
             appendLine()
             appendLine(
                 "Run ./gradlew ${projectPath.get()}:proguardShield to use the accurate path until parity is restored, " +
-                    "and please file an issue: https://github.com/fornewid/proguard-shield/issues",
+                    "and please file an issue (please include the AGP version): " +
+                    "https://github.com/fornewid/proguard-shield/issues",
             )
         }
 
-        logger.error(ColorTerminal.colorify(ColorTerminal.ANSI_RED, message))
+        // Gradle prints the GradleException message itself, so emitting via
+        // logger.error first would just duplicate the same lines on stdout.
         throw GradleException(message)
     }
 }

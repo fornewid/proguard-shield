@@ -96,12 +96,13 @@ internal class ProGuardShieldPluginTest {
             // we can confirm what `check` would trigger without paying the
             // lint / unit-test cost the throwaway fixture isn't set up for.
             // BuildResult.task() returns null for dry-run skipped tasks, so
-            // parse the printed task names from stdout instead.
-            val result = build(project, ":app:check", "--dry-run")
+            // parse the printed task names from stdout instead. --console=plain
+            // pins the output format Gradle uses across versions / TTY modes.
+            val result = build(project, ":app:check", "--dry-run", "--console=plain")
+            val taskLine = Regex("^:app:(\\S+)")
             val scheduledTasks = result.output.lines()
-                .mapNotNull { line ->
-                    Regex("^:app:(\\S+)").find(line)?.groupValues?.get(0)
-                }
+                .mapNotNull { taskLine.find(it)?.groupValues?.get(1) }
+                .map { ":app:$it" }
                 .toSet()
             assertThat(scheduledTasks).contains(":app:proguardShieldFastRelease")
             // Accurate path stays out of `check` so CI does not pay the
