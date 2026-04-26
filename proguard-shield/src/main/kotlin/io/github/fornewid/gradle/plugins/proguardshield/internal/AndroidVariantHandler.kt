@@ -10,6 +10,7 @@ import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.Pro
 import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.ProGuardShieldFastListTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.R8TaskInputExtractor
 import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.OutputFileUtils
+import io.github.fornewid.gradle.plugins.proguardshield.internal.verify.ProGuardShieldVerifyParityTask
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
@@ -28,6 +29,7 @@ internal object AndroidVariantHandler {
         baselineTask: TaskProvider<*>,
         fastGuardTask: TaskProvider<*>,
         fastBaselineTask: TaskProvider<*>,
+        verifyParityTask: TaskProvider<*>,
     ) {
         val androidComponents = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java)
 
@@ -50,6 +52,7 @@ internal object AndroidVariantHandler {
                         baselineTask = baselineTask,
                         fastGuardTask = fastGuardTask,
                         fastBaselineTask = fastBaselineTask,
+                        verifyParityTask = verifyParityTask,
                     )
                 }
             }
@@ -103,6 +106,7 @@ internal object AndroidVariantHandler {
         baselineTask: TaskProvider<*>,
         fastGuardTask: TaskProvider<*>,
         fastBaselineTask: TaskProvider<*>,
+        verifyParityTask: TaskProvider<*>,
     ) {
         if (!variant.isMinifyEnabled) {
             throw GradleException(
@@ -216,13 +220,29 @@ internal object AndroidVariantHandler {
         }
         fastBaselineTask.configure { dependsOn(fastConfigBaselineTask) }
 
-        // ---- Evaluation mode: run BOTH approaches via the top-level
-        // aggregates so `./gradlew check` detects drift from either
-        // approach, and `./gradlew proguardShieldBaseline` generates
-        // both baseline files at once. The fast-only aggregates
-        // (`proguardShieldFast`, `proguardShieldFastBaseline`) are
-        // kept for users who want to run only approach 2-B.
-        guardTask.configure { dependsOn(fastConfigGuardTask) }
+        // The baseline aggregate writes both files in one shot — users
+        // running `./gradlew :app:proguardShieldBaseline` on first install
+        // or after intentional rule changes need both committed. The guard
+        // aggregates stay accurate-only / fast-only respectively.
         baselineTask.configure { dependsOn(fastConfigBaselineTask) }
+
+        // ---- Parity verification (regenerate both baselines, then byte-compare) ----
+        val accurateBaselinePath = baselineDirectory.file("$filePrefix.txt")
+        val fastBaselinePath = baselineDirectory.file("$fastFilePrefix.txt")
+
+        val perConfigVerifyParityTask = project.tasks.register(
+            "proguardShieldVerifyParity$capitalizedName",
+            ProGuardShieldVerifyParityTask::class.java,
+        ) {
+            // Force a fresh capture of both baselines first so the comparison
+            // reflects the current build, not whatever was committed earlier.
+            dependsOn(perConfigBaselineTask)
+            dependsOn(fastConfigBaselineTask)
+            accurateBaseline.set(accurateBaselinePath)
+            fastBaseline.set(fastBaselinePath)
+            configurationName.set(config.configurationName)
+            projectPath.set(project.path)
+        }
+        verifyParityTask.configure { dependsOn(perConfigVerifyParityTask) }
     }
 }

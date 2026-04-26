@@ -11,6 +11,7 @@ internal class ProGuardShieldPluginTest {
     companion object {
         private const val ACCURATE_BASELINE = "proguardShield/releaseRules.txt"
         private const val FAST_BASELINE = "proguardShield/releaseFastRules.txt"
+        private const val FAST_BASELINE_NAME = "releaseFastRules.txt"
     }
 
     @Test
@@ -76,15 +77,76 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
-    fun `combined guard aggregate runs both per-variant guard tasks`() {
+    fun `accurate guard aggregate runs only the accurate per-variant task`() {
         AndroidProject().use { project ->
             build(project, ":app:proguardShieldBaseline")
 
             val result = build(project, ":app:proguardShield")
-            // task() returns non-null only if the task actually appeared in
-            // the build — robust against log buffering / UP-TO-DATE skips.
             assertThat(result.task(":app:proguardShieldRelease")).isNotNull()
-            assertThat(result.task(":app:proguardShieldFastRelease")).isNotNull()
+            assertThat(result.task(":app:proguardShieldFastRelease")).isNull()
+        }
+    }
+
+    @Test
+    fun `check lifecycle runs only the fast path`() {
+        AndroidProject().use { project ->
+            build(project, ":app:proguardShieldBaseline")
+
+            // --dry-run inspects the task graph without executing tasks, so
+            // we can confirm what `check` would trigger without paying the
+            // lint / unit-test cost the throwaway fixture isn't set up for.
+            // BuildResult.task() returns null for dry-run skipped tasks, so
+            // parse the printed task names from stdout instead.
+            val result = build(project, ":app:check", "--dry-run")
+            val scheduledTasks = result.output.lines()
+                .mapNotNull { line ->
+                    Regex("^:app:(\\S+)").find(line)?.groupValues?.get(0)
+                }
+                .toSet()
+            assertThat(scheduledTasks).contains(":app:proguardShieldFastRelease")
+            // Accurate path stays out of `check` so CI does not pay the
+            // R8 cost on every build.
+            assertThat(scheduledTasks).doesNotContain(":app:proguardShieldRelease")
+            assertThat(scheduledTasks).doesNotContain(":app:minifyReleaseWithR8")
+        }
+    }
+
+    @Test
+    fun `verifyParity passes when both baselines are bit-identical`() {
+        AndroidProject().use { project ->
+            val result = build(project, ":app:proguardShieldVerifyParity")
+            assertThat(result.output).contains("parity holds")
+            // Both baseline files exist after the verify task runs.
+            assertThat(project.baselineFileExists(ACCURATE_BASELINE)).isTrue()
+            assertThat(project.baselineFileExists(FAST_BASELINE)).isTrue()
+            assertThat(project.readBaselineFile(ACCURATE_BASELINE))
+                .isEqualTo(project.readBaselineFile(FAST_BASELINE))
+        }
+    }
+
+    @Test
+    fun `verifyParity fails when the two baselines diverge`() {
+        AndroidProject().use { project ->
+            // Generate both baselines, then mutate the fast one out-of-band
+            // so the byte-compare must fail. Touching the file directly is
+            // the only way to simulate a parity break — the regular fast
+            // and accurate paths agree by construction.
+            build(project, ":app:proguardShieldBaseline")
+
+            val fastFile = project.dir.resolve("app/proguardShield/$FAST_BASELINE_NAME")
+            fastFile.writeText("-keep class com.example.NotInTheAccurateBaseline\n")
+
+            val result = buildAndFail(
+                project,
+                ":app:proguardShieldVerifyParityRelease",
+                // Stop the dependent baseline tasks from regenerating the
+                // file we just mutated, so the verify step actually compares
+                // the divergent inputs.
+                "-x", ":app:proguardShieldFastBaselineRelease",
+                "-x", ":app:proguardShieldBaselineRelease",
+            )
+            assertThat(result.output).contains("parity FAILED")
+            assertThat(result.output).contains("com.example.NotInTheAccurateBaseline")
         }
     }
 
