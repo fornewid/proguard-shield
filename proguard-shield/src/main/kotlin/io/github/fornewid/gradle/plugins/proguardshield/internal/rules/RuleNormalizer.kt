@@ -56,15 +56,19 @@ internal object RuleNormalizer {
             val code = stripInlineComment(rawLine).trim()
             if (code.isEmpty()) continue
 
+            // R8 echoes our injected -printconfiguration directive back; the
+            // path it carries is machine-specific so it must not enter the
+            // baseline. Drop it unconditionally — even if a malformed input
+            // somehow buried it inside an unbalanced block — to make sure no
+            // per-machine path can leak. The line carries no braces, so this
+            // does not disturb depth tracking.
+            if (code.startsWith("-printconfiguration")) {
+                if (depth == 0) current = null
+                continue
+            }
+
             val isDirectiveStart = depth == 0 && code.startsWith("-")
             if (isDirectiveStart) {
-                if (code.startsWith("-printconfiguration")) {
-                    // R8 echoes our injected directive back; the path it
-                    // carries is machine-specific so it must not enter the
-                    // baseline. Skip it without opening a unit.
-                    current = null
-                    continue
-                }
                 current = mutableListOf<String>().also { units += it }
             }
 
