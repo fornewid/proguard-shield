@@ -16,9 +16,10 @@ Three-mode lifecycle:
 - `./gradlew :app:proguardShieldVerifyParity` — first install + every AGP upgrade. Regenerates both baselines and byte-compares them; fails if they diverge.
 - `./gradlew check` — daily CI. Runs only `proguardShieldFast{Variant}`; accurate path is reserved for explicit invocation so CI does not pay the R8 cost on every build.
 
+Both list tasks (`ProGuardShieldListTask`, `ProGuardShieldFastListTask`) run a shared `internal.forbidden.ForbiddenPatternChecker` over the same normalized rule input before the drift comparison. The pattern set is supplied per variant via `proguardShield.configuration("release").forbiddenPatterns`. Empty by default — the plugin ships no policy. Running both checks under both paths is what keeps the `proguardShieldVerifyParity` invariant honest.
+
 Remaining roadmap:
 - Pick one path and remove the other based on real-project user feedback.
-- Forbidden-rule pattern check (e.g. overly broad `-keep class **`).
 
 ## Build & Test Commands
 

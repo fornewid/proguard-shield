@@ -81,6 +81,24 @@ Drift detected by the fast path against the committed baseline fails the build w
 
 Same as mode 1 — overwrites both files. After committing the new baselines, mode 3 stays green again.
 
+### Forbidden patterns (optional)
+
+Project-defined regex patterns that fail the build whenever a matching rule sneaks into the merged R8 input — overly broad keeps, disabled obfuscation, etc. Empty by default; the plugin enforces no policy on its own.
+
+```kotlin
+proguardShield {
+    configuration("release") {
+        forbiddenPatterns = listOf(
+            "-keep\\s+class\\s+\\*\\*",     // overly broad keeps
+            "-dontobfuscate",                // obfuscation disabled
+            "-dontshrink",                   // shrinking disabled
+        )
+    }
+}
+```
+
+Both the accurate and fast paths run the same check on the same normalized inputs, so a violation surfaces consistently regardless of which task runs. Forbidden detection runs **before** drift detection — re-baselining cannot silence a forbidden match.
+
 ### Run only one path (optional)
 
 ```bash
@@ -100,9 +118,9 @@ Same as mode 1 — overwrites both files. After committing the new baselines, mo
 - [x] GradleRunner integration tests — baseline + drift + parity + DSL validation
 - [x] AGP version matrix — integration tests run against every supported AGP on CI
 - [x] 0.0.3 — `check` runs only the fast path; explicit `proguardShieldVerifyParity` for accurate↔fast comparison
+- [x] Forbidden-rule pattern check (regex-based, opt-in via `forbiddenPatterns` DSL)
+- [x] Publish to Maven Central / Gradle Plugin Portal
 - [ ] Pick one path based on user feedback, drop the other
-- [ ] Forbidden-rule pattern check (e.g. overly broad `-keep class **`)
-- [ ] Publish to Maven Central / Gradle Plugin Portal
 
 ## Releasing
 

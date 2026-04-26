@@ -150,6 +150,7 @@ internal object AndroidVariantHandler {
             pluginVersion.set(ProGuardShieldPlugin.VERSION)
             this.baselineDir.set(baselineDirectory)
             this.filePrefix.set(filePrefix)
+            forbiddenPatterns.set(config.forbiddenPatterns)
         }
         guardTask.configure { dependsOn(perConfigGuardTask) }
 
@@ -165,6 +166,7 @@ internal object AndroidVariantHandler {
             pluginVersion.set(ProGuardShieldPlugin.VERSION)
             this.baselineDir.set(baselineDirectory)
             this.filePrefix.set(filePrefix)
+            forbiddenPatterns.set(config.forbiddenPatterns)
         }
         baselineTask.configure { dependsOn(perConfigBaselineTask) }
 
@@ -200,6 +202,7 @@ internal object AndroidVariantHandler {
             this.baselineDir.set(baselineDirectory)
             this.filePrefix.set(fastFilePrefix)
             this.rootDirPath.set(rootDir)
+            forbiddenPatterns.set(config.forbiddenPatterns)
         }
         fastGuardTask.configure { dependsOn(fastConfigGuardTask) }
 
@@ -217,6 +220,7 @@ internal object AndroidVariantHandler {
             this.baselineDir.set(baselineDirectory)
             this.filePrefix.set(fastFilePrefix)
             this.rootDirPath.set(rootDir)
+            forbiddenPatterns.set(config.forbiddenPatterns)
         }
         fastBaselineTask.configure { dependsOn(fastConfigBaselineTask) }
 

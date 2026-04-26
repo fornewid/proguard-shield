@@ -1,7 +1,9 @@
 public class io/github/fornewid/gradle/plugins/proguardshield/ProGuardShieldConfiguration : org/gradle/api/Named {
 	public fun <init> (Ljava/lang/String;)V
 	public final fun getConfigurationName ()Ljava/lang/String;
+	public final fun getForbiddenPatterns ()Ljava/util/List;
 	public fun getName ()Ljava/lang/String;
+	public final fun setForbiddenPatterns (Ljava/util/List;)V
 }
 
 public final class io/github/fornewid/gradle/plugins/proguardshield/ProGuardShieldPlugin : org/gradle/api/Plugin {
