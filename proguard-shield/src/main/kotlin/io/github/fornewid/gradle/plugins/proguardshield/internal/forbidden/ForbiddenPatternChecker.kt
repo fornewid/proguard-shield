@@ -4,11 +4,14 @@ import java.util.regex.PatternSyntaxException
 
 /**
  * Scans normalized rule units against a set of regex patterns supplied by
- * the project author. The match runs against each unit's **header line**
- * (the line starting with `-`), so a body line like `<init>();` inside a
- * `-keep class ... { ... }` block does not produce a spurious hit. When a
- * header matches, the violation report carries the entire unit verbatim
- * so the user can see the rule in context.
+ * the project author. The match runs against each unit's **directive head**
+ * — i.e. the directive name plus any arguments before an opening `{`.
+ * Lines that follow a `{` (block body such as `<init>();`) are excluded
+ * so a body line cannot produce a spurious hit, and continuation lines
+ * of multi-line directives like `-keepattributes A,\nB,\nC` are joined
+ * back into the head so a pattern like `Signature` actually catches the
+ * `Signature` token. When a head matches, the violation report carries
+ * the entire unit verbatim so the user can see the rule in context.
  *
  * The check is intentionally policy-free: the plugin ships no default
  * patterns. Each project declares its own list via
@@ -43,7 +46,7 @@ internal object ForbiddenPatternChecker {
 
         val violations = mutableListOf<Violation>()
         for ((source, regex) in compiled) {
-            val matches = units.filter { regex.containsMatchIn(it.first()) }
+            val matches = units.filter { regex.containsMatchIn(directiveHead(it)) }
             if (matches.isNotEmpty()) {
                 violations += Violation(
                     pattern = source,
@@ -52,6 +55,18 @@ internal object ForbiddenPatternChecker {
             }
         }
         return violations
+    }
+
+    /**
+     * Joins the unit lines into a single haystack covering the directive
+     * itself and any continuation lines, but stopping at the opening `{` of
+     * a `-keep ... { ... }` block so block bodies don't leak into matching.
+     * If no `{` is present (single-line directives, multi-line
+     * `-keepattributes` etc.) the entire unit is searched.
+     */
+    private fun directiveHead(unit: List<String>): String {
+        val joined = unit.joinToString(" ")
+        return joined.substringBefore('{').trim()
     }
 
     fun renderFailureMessage(

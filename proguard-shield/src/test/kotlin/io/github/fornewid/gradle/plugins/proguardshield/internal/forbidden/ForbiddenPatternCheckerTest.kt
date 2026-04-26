@@ -70,6 +70,23 @@ class ForbiddenPatternCheckerTest {
     }
 
     @Test
+    fun `multi-line directive continuation lines participate in matching`() {
+        // R8 wraps long -keepattributes onto continuation lines that don't
+        // start with '-'. A user policy targeting `Signature` should catch
+        // a Signature continuation token even when it sits on its own line.
+        val units = listOf(
+            listOf("-keepattributes AnnotationDefault,", "EnclosingMethod,", "Signature"),
+            listOf("-keep class com.example.Foo"),
+        )
+
+        val violations = ForbiddenPatternChecker.check(units, listOf("Signature"))
+
+        assertThat(violations).hasSize(1)
+        assertThat(violations[0].matchedRules)
+            .containsExactly("-keepattributes AnnotationDefault,\nEnclosingMethod,\nSignature")
+    }
+
+    @Test
     fun `header-matching violation reports the entire unit verbatim`() {
         val units = listOf(
             listOf("-keep class ** {", "*;", "}"),
