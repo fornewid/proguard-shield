@@ -137,6 +137,31 @@ class RuleNormalizerTest {
     }
 
     @Test
+    fun `units with the same header tie-break by body content`() {
+        // Two units share the header but have different bodies. Without the
+        // body tie-break the result would track input order, which differs
+        // between the accurate and fast paths and would break parity.
+        val a = """
+            -keepclasseswithmembers class * {
+                @androidx.annotation.Keep <methods>;
+            }
+            -keepclasseswithmembers class * {
+                @android.support.annotation.Keep <methods>;
+            }
+        """.trimIndent()
+        val b = """
+            -keepclasseswithmembers class * {
+                @android.support.annotation.Keep <methods>;
+            }
+            -keepclasseswithmembers class * {
+                @androidx.annotation.Keep <methods>;
+            }
+        """.trimIndent()
+
+        assertThat(RuleNormalizer.normalize(a)).isEqualTo(RuleNormalizer.normalize(b))
+    }
+
+    @Test
     fun `nested braces are tolerated`() {
         // Rare in proguard rules but the parser should not fall apart.
         val input = """

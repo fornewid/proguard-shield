@@ -39,6 +39,14 @@ internal object RuleNormalizer {
      * blank lines are dropped, and the plugin-injected `-printconfiguration`
      * line is filtered out (otherwise it would anchor a per-machine path
      * into the baseline).
+     *
+     * Assumptions about the input (true for R8's `-printconfiguration` output
+     * and for the concatenation of `.pro` files that feed it):
+     * - Continuation lines (e.g. the body of `-keepattributes A,\nB,\nC`) do
+     *   not start with `-`. Only directive headers do.
+     * - Brace counting is purely textual. R8 never emits `{` or `}` inside a
+     *   string or character literal in its rule output, so no quote-aware
+     *   parser is needed.
      */
     private fun parseUnits(raw: String): List<List<String>> {
         val units = mutableListOf<MutableList<String>>()
