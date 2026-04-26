@@ -241,6 +241,78 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
+    fun `forbidden pattern in app rules trips both accurate and fast paths`() {
+        val pluginConfig = """
+            proguardShield {
+                configuration("release") {
+                    forbiddenPatterns = ["-dontobfuscate"]
+                }
+            }
+        """.trimIndent()
+
+        // accurate path
+        AndroidProject(
+            pluginConfig = pluginConfig,
+            proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-dontobfuscate",
+        ).use { project ->
+            val result = buildAndFail(project, ":app:proguardShieldRelease")
+            assertThat(result.output).contains("forbidden rule patterns detected")
+            assertThat(result.output).contains("-dontobfuscate")
+        }
+
+        // fast path — same DSL, same rules, same outcome.
+        AndroidProject(
+            pluginConfig = pluginConfig,
+            proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-dontobfuscate",
+        ).use { project ->
+            val result = buildAndFail(project, ":app:proguardShieldFastRelease")
+            assertThat(result.output).contains("forbidden rule patterns detected")
+            assertThat(result.output).contains("-dontobfuscate")
+        }
+    }
+
+    @Test
+    fun `forbidden patterns empty list is a no-op`() {
+        AndroidProject(
+            // Default DSL — no forbiddenPatterns at all.
+            proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-dontobfuscate",
+        ).use { project ->
+            // Plain baseline + check should sail through; -dontobfuscate is
+            // legal absent a policy that bans it.
+            build(project, ":app:proguardShieldBaseline")
+            val result = build(project, ":app:proguardShield")
+            assertThat(result.output).doesNotContain("forbidden rule patterns")
+        }
+    }
+
+    @Test
+    fun `forbidden check fires before drift detection`() {
+        // Baseline a clean state, then add a forbidden rule. Both drift and
+        // forbidden are now true; the failure message should still be the
+        // forbidden one — re-baselining must not silence forbidden.
+        AndroidProject(
+            pluginConfig = """
+                proguardShield {
+                    configuration("release") {
+                        forbiddenPatterns = ["-dontobfuscate"]
+                    }
+                }
+            """.trimIndent(),
+        ).use { project ->
+            build(project, ":app:proguardShieldBaseline")
+
+            project.updateProguardRules(
+                AndroidProject.DEFAULT_PROGUARD_RULES + "\n-dontobfuscate",
+            )
+
+            val result = buildAndFail(project, ":app:proguardShieldRelease")
+            assertThat(result.output).contains("forbidden rule patterns detected")
+            // We never reach the drift report because forbidden short-circuits.
+            assertThat(result.output).doesNotContain("rules changed")
+        }
+    }
+
+    @Test
     fun `variant without minify enabled fails with helpful error`() {
         AndroidProject(
             minifyEnabled = false,

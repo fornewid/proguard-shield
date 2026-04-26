@@ -1,6 +1,7 @@
 package io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig
 
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
+import io.github.fornewid.gradle.plugins.proguardshield.internal.forbidden.ForbiddenPatternChecker
 import io.github.fornewid.gradle.plugins.proguardshield.internal.rules.RuleDiff
 import io.github.fornewid.gradle.plugins.proguardshield.internal.rules.RuleDiffResult
 import io.github.fornewid.gradle.plugins.proguardshield.internal.rules.RuleNormalizer
@@ -11,6 +12,7 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
@@ -52,6 +54,9 @@ internal abstract class ProGuardShieldListTask : DefaultTask() {
     @get:Input
     abstract val filePrefix: Property<String>
 
+    @get:Input
+    abstract val forbiddenPatterns: ListProperty<String>
+
     init {
         declareCompatibilities()
     }
@@ -65,7 +70,22 @@ internal abstract class ProGuardShieldListTask : DefaultTask() {
         val prefix = filePrefix.get()
 
         val rawContent = mergedRulesFile.get().asFile.readText()
-        val normalized = RuleNormalizer.normalize(rawContent)
+        val units = RuleNormalizer.normalizeUnits(rawContent)
+        val normalized = units.flatten().joinToString("\n")
+
+        // Forbidden-pattern check first — strongest signal, no rebaseline can
+        // silence it. Both the accurate and fast tasks run the identical check
+        // on the identical normalized inputs, preserving parity.
+        val violations = try {
+            ForbiddenPatternChecker.check(units, forbiddenPatterns.get())
+        } catch (e: IllegalArgumentException) {
+            throw GradleException(e.message ?: "Invalid forbiddenPatterns regex", e)
+        }
+        if (violations.isNotEmpty()) {
+            val message = ForbiddenPatternChecker.renderFailureMessage(path, configName, violations)
+            logger.error(message)
+            throw GradleException(message)
+        }
 
         val file = OutputFileUtils.baselineFile(dir, prefix)
 
