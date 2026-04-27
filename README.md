@@ -1,31 +1,36 @@
-# proguard-shield
+# :shield: ProGuard Shield
+
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.fornewid.proguard-shield/proguard-shield)](https://central.sonatype.com/artifact/io.github.fornewid.proguard-shield/proguard-shield)
+[![Gradle Plugin Portal](https://img.shields.io/gradle-plugin-portal/v/io.github.fornewid.proguard-shield)](https://plugins.gradle.org/plugin/io.github.fornewid.proguard-shield)
+[![Build](https://github.com/fornewid/proguard-shield/actions/workflows/build.yml/badge.svg)](https://github.com/fornewid/proguard-shield/actions/workflows/build.yml)
+[![License](https://img.shields.io/github/license/fornewid/proguard-shield)](LICENSE)
+
+> :warning: This project is in an experimental stage. APIs and behavior may change without notice.
 
 A Gradle plugin that detects unintentional changes to Android's merged ProGuard/R8 rules.
 
-> Status: **0.0.x evaluation series.** Two implementations ship side-by-side so users can confirm parity on their own projects before a single approach is locked in.
+## Why?
 
-## What it does
+R8/ProGuard rules come from your app, AAR consumer rules, AGP defaults, and AAPT2.
+Adding a dependency or upgrading AGP can silently inject new rules — disabling
+obfuscation, broadening keeps, weakening optimizer behavior — without touching
+your project's own `proguard-rules.pro`.
 
-Snapshots the full ProGuard/R8 rule set for your `release` build as a baseline, then fails the build whenever subsequent builds produce a different set of rules — catching silent dependency-driven rule changes (new AAR consumer rules, R8 default shifts, etc.) before they hit production.
+**ProGuard Shield** saves a baseline of the fully-merged rule set and fails the
+build when something changes. Optional regex patterns also fail the build when
+a known-dangerous rule appears.
 
-## Two implementations
+## Quick Start
 
-Both produce bit-identical baselines (same rules, same order); they differ in how they gather the rules.
+### Step 1: Apply the plugin
 
-| Task family | What runs | Speed | AGP coupling |
-|---|---|---|---|
-| `proguardShield{Variant}` (accurate) | full R8 with `-printconfiguration` | slow (minutes on real apps) | public AGP API only |
-| `proguardShieldFast{Variant}` | R8 inputs read directly via reflection, R8 itself skipped | fast (seconds) | uses AGP internal class (`ProguardConfigurableTask`) |
-
-`./gradlew check` runs only the **fast** path so daily CI is cheap. The accurate path is reserved for the explicit parity-verification flow below.
-
-## Install
+Add the plugin to your **application** module's `build.gradle.kts` (library modules are not supported — they don't run R8):
 
 ```kotlin
 // app/build.gradle.kts
 plugins {
     id("com.android.application")
-    id("io.github.fornewid.proguard-shield") version "0.0.2"
+    id("io.github.fornewid.proguard-shield") version "<latest-version>"
 }
 
 android {
@@ -45,45 +50,69 @@ proguardShield {
 }
 ```
 
-Requires AGP 8.0+. `com.android.application` modules only (library modules do not run R8).
-
-## Usage — three modes
-
-### Mode 1: First install / baseline (run once, then on intentional rule changes)
+### Step 2: Generate a baseline
 
 ```bash
-./gradlew :app:proguardShieldBaseline
-# Writes both files at once:
-#   app/proguardShield/releaseRules.txt       (accurate path)
-#   app/proguardShield/releaseFastRules.txt   (fast path)
+./gradlew proguardShieldBaseline
 ```
 
-Commit both files. The fast path needs both committed so the verification task below can compare them.
+Creates baseline files under `proguardShield/`:
 
-### Mode 2: Parity verification (first install, then on every AGP upgrade)
+```
+proguardShield/
+├── releaseRules.txt        # accurate path — what R8 emits via -printconfiguration
+└── releaseFastRules.txt    # fast path — same content, captured without running R8
+```
+
+Commit both files to version control.
+
+### Step 3: Detect changes
+
+```bash
+./gradlew check
+```
+
+The `check` lifecycle runs the **fast** path (no R8 invocation, seconds instead
+of minutes). If the merged rule set differs from the baseline, the build fails
+with a diff:
+
+```diff
+ProGuard/R8 rules changed in :app for release.
++ -keep class com.example.NewlyAdded { *; }
+
+If this is intentional, re-baseline using ./gradlew :app:proguardShieldFastBaselineRelease
+```
+
+To accept the changes, re-run `./gradlew proguardShieldBaseline`. Both baseline
+files update together.
+
+## Two implementations
+
+Internally `proguard-shield` ships two extraction strategies. Both produce
+bit-identical baselines when parity holds, and both run the same forbidden-pattern
+check. They differ in how they reach the rules:
+
+| Task family | What runs | Speed | AGP coupling |
+|---|---|---|---|
+| `proguardShield{Variant}` | full R8 with `-printconfiguration` | slow (minutes on real apps) | public AGP API only |
+| `proguardShieldFast{Variant}` | reads R8 inputs directly via reflection | fast (seconds) | uses AGP internal class (`ProguardConfigurableTask`) |
+
+Daily `check` runs only the fast path. After every AGP upgrade, run the parity
+verification task to confirm the fast path's reflection contract still holds:
 
 ```bash
 ./gradlew :app:proguardShieldVerifyParity
 ```
 
-Regenerates both baselines and byte-compares them. If they diverge, the task fails with a clear list of the lines that disagree — that's the signal that the fast path's reflection contract has shifted under the new AGP version. Until parity is restored you should fall back to `:app:proguardShield` (accurate) and please file an issue.
+This regenerates both baselines and byte-compares them. Divergence means the
+fast path can no longer be trusted on this AGP version — fall back to the
+accurate `proguardShield` task and please file an issue.
 
-### Mode 3: Daily CI (every build)
+## Forbidden patterns
 
-```bash
-./gradlew :app:check
-# Runs proguardShieldFastRelease — cheap, no R8 invocation.
-```
-
-Drift detected by the fast path against the committed baseline fails the build with a colored `+`/`-` diff and a rebaseline hint.
-
-### Re-baseline after an intentional rule change
-
-Same as mode 1 — overwrites both files. After committing the new baselines, mode 3 stays green again.
-
-### Forbidden patterns (optional)
-
-Project-defined regex patterns that fail the build whenever a matching rule sneaks into the merged R8 input — overly broad keeps, disabled obfuscation, etc. Empty by default; the plugin enforces no policy on its own.
+Empty by default. Declare regex patterns that fail the build whenever a
+matching rule appears in the merged input — useful for projects that want
+to ban overly broad keeps, disabled obfuscation, and similar foot-guns.
 
 ```kotlin
 proguardShield {
@@ -97,39 +126,49 @@ proguardShield {
 }
 ```
 
-Both the accurate and fast paths run the same check on the same normalized inputs, so a violation surfaces consistently regardless of which task runs. Forbidden detection runs **before** drift detection — re-baselining cannot silence a forbidden match.
+Each pattern is matched against the directive head of every rule unit
+(continuation lines of multi-line directives like `-keepattributes A,\nB,\nC`
+are joined; bodies of `-keep ... { ... }` blocks are excluded). Forbidden
+detection runs **before** drift detection — re-baselining cannot silence
+a forbidden match.
 
-### Run only one path (optional)
+## Configuration
 
-```bash
-./gradlew :app:proguardShield               # accurate, single variant — runs R8
-./gradlew :app:proguardShieldFast           # fast aggregate, all declared variants
-./gradlew :app:proguardShieldFastBaseline   # fast baseline only
+```kotlin
+proguardShield {
+    baselineDir.set("custom-dir")  // default: "proguardShield"
+    configuration("release") {
+        forbiddenPatterns = listOf(
+            "-dontobfuscate",
+        )
+    }
+}
 ```
 
-## Roadmap
+| Option | Default | Description |
+|---|---|---|
+| `baselineDir` | `"proguardShield"` | Directory (relative to the module) where baseline files are written. |
+| `forbiddenPatterns` | `[]` | Regex patterns that fail the build whenever a matching rule appears. |
 
-- [x] Repository bootstrap (Gradle wrapper, workflows, sample module layout)
-- [x] Plugin module skeleton (extension DSL, variant handler)
-- [x] Approach 1: `-printconfiguration` baseline + diff
-- [x] Approach 2-B: R8 task input interception
-- [x] Parity — both approaches produce bit-identical baselines
-- [x] 0.0.1 evaluation release — both run side-by-side
-- [x] GradleRunner integration tests — baseline + drift + parity + DSL validation
-- [x] AGP version matrix — integration tests run against every supported AGP on CI
-- [x] 0.0.3 — `check` runs only the fast path; explicit `proguardShieldVerifyParity` for accurate↔fast comparison
-- [x] Forbidden-rule pattern check (regex-based, opt-in via `forbiddenPatterns` DSL)
-- [x] Publish to Maven Central / Gradle Plugin Portal
-- [ ] Pick one path based on user feedback, drop the other
+## Requirements
 
-## Releasing
+- Android Gradle Plugin 8.0.0+
+- Gradle 8.0+
+- `com.android.application` modules only — library modules don't run R8
 
-See [`RELEASING.md`](RELEASING.md) for the release process and required GitHub secrets.
+## AI Agent Guide
 
-## Related
+If you use an AI coding assistant (Claude Code, GitHub Copilot, Gemini, Cursor, etc.),
+reference the [setup guide](docs/setup-guide.md.txt) for accurate installation
+instructions and common pitfalls.
 
-- [manifest-shield](https://github.com/fornewid/manifest-shield) — sibling plugin for Android manifest changes. proguard-shield mirrors its structure.
+## Acknowledgements
+
+Sibling project to [manifest-shield](https://github.com/fornewid/manifest-shield)
+and [highlander](https://github.com/fornewid/highlander); shares their build,
+release, and integration-test infrastructure. Releasing details live in
+[`RELEASING.md`](RELEASING.md).
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+[Apache License 2.0](LICENSE)
