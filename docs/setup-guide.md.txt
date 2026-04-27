@@ -1,0 +1,169 @@
+# ProGuard Shield — AI Agent Setup Guide
+
+This guide helps AI agents (Claude Code, GitHub Copilot, Gemini, Cursor, etc.)
+correctly install and configure the ProGuard Shield Gradle plugin.
+
+## What is ProGuard Shield?
+
+A Gradle plugin that detects unintentional changes to Android's merged
+ProGuard/R8 rules. It saves a baseline of the fully-merged rule set and fails
+the build when something changes — catching unexpected rules added by
+dependency updates, AGP defaults shifts, or AAR consumer rules. An optional
+regex pattern list also fails the build when a known-dangerous rule (e.g.
+`-keep class **`, `-dontobfuscate`) appears in the merged input.
+
+- Plugin ID: `io.github.fornewid.proguard-shield`
+- Maven Central: `io.github.fornewid.proguard-shield:proguard-shield`
+- Minimum: AGP 8.0.0+, Gradle 8.0+
+- Application modules only — library modules don't run R8
+
+## Step 1: Apply the plugin
+
+Add to the **application module's** `build.gradle.kts` (not the root project):
+
+Using Version Catalog (`libs.versions.toml`):
+
+    [plugins]
+    proguard-shield = { id = "io.github.fornewid.proguard-shield", version = "<latest-version>" }
+
+    // app/build.gradle.kts
+    plugins {
+        id("com.android.application")
+        alias(libs.plugins.proguard.shield)
+    }
+
+    android {
+        buildTypes {
+            release {
+                isMinifyEnabled = true
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro",
+                )
+            }
+        }
+    }
+
+    proguardShield {
+        configuration("release")
+    }
+
+Or directly:
+
+    plugins {
+        id("com.android.application")
+        id("io.github.fornewid.proguard-shield") version "<latest-version>"
+    }
+
+    proguardShield {
+        configuration("release")
+    }
+
+**AI Agent**: The minimal setup is just `configuration("release")` with no
+additional properties. Do NOT add `forbiddenPatterns = ...` unless the user
+explicitly asks for forbidden-rule policy. Do NOT apply this plugin to a
+library module — it only works for `com.android.application` modules. The
+target variant must have `isMinifyEnabled = true`; a clear configuration-time
+error is thrown otherwise.
+
+## Step 2: Generate a baseline
+
+    ./gradlew proguardShieldBaseline
+
+This writes two files into `proguardShield/`:
+
+- `releaseRules.txt` — accurate path (what R8 emits via `-printconfiguration`)
+- `releaseFastRules.txt` — fast path (same content, captured without running R8)
+
+Both files should be committed to version control. They are bit-identical when
+parity holds, but each path needs its own committed baseline because daily CI
+checks the fast file and `proguardShieldVerifyParity` byte-compares the two.
+
+**AI Agent**: Always run `proguardShieldBaseline` first during initial setup.
+Both baseline files are produced by the same command — you do NOT need to run
+`proguardShieldFastBaseline` separately. After committing, the next step is
+detection, not running the accurate task again.
+
+## Step 3: Detect changes
+
+    ./gradlew check
+
+The `check` lifecycle runs `proguardShieldFast{Variant}` — the fast path,
+without invoking R8. If the merged rule set differs from `releaseFastRules.txt`,
+the build fails with a colored `+`/`-` diff and a re-baseline hint.
+
+To accept changes, re-run `./gradlew proguardShieldBaseline`.
+
+**AI Agent**: Do NOT recommend `./gradlew proguardShield` as the default
+detection command. The `proguardShield` (accurate) task runs the full R8
+pipeline and is reserved for explicit invocation; `check` already covers daily
+detection via the fast path.
+
+## Step 4 (after AGP upgrade): Verify parity
+
+    ./gradlew proguardShieldVerifyParity
+
+Regenerates both baselines and byte-compares them. The fast path uses an AGP
+internal class via reflection, so an AGP version bump can break the contract;
+this task is the explicit gate that catches it.
+
+**AI Agent**: Recommend running `proguardShieldVerifyParity` after every AGP
+version change in the project's `libs.versions.toml` or `build.gradle.kts`.
+Do NOT run it on every CI build — the parity check regenerates both baselines
+and is unnecessary on builds where AGP hasn't moved.
+
+## Forbidden patterns (opt-in)
+
+A regex policy that fails the build when a matching rule appears in the merged
+input. Disabled by default — only add when the user explicitly asks for a
+policy:
+
+    proguardShield {
+        configuration("release") {
+            forbiddenPatterns = listOf(
+                "-keep\\s+class\\s+\\*\\*",
+                "-dontobfuscate",
+                "-dontshrink",
+            )
+        }
+    }
+
+Patterns are Kotlin regexes matched against each rule unit's directive head
+(continuation lines joined; block bodies excluded). The check runs before
+drift detection — re-baselining cannot silence a forbidden match.
+
+**AI Agent**: Patterns are regexes. If the user provides a literal directive
+like `-dontobfuscate`, that works as-is (it has no regex metacharacters).
+For class-name patterns like `-keep class **`, escape the wildcards as
+`-keep\\s+class\\s+\\*\\*`. Do not add curated default patterns — the
+plugin intentionally ships an empty list; each project owns its own policy.
+
+## Default behavior
+
+- `check` runs only the fast path (`proguardShieldFast{Variant}`).
+- `proguardShieldBaseline` writes both `<variant>Rules.txt` and
+  `<variant>FastRules.txt`. Both should be committed.
+- `proguardShield` (accurate) is registered but not on `check`.
+- `proguardShieldVerifyParity` is registered but not on `check`. Run it
+  manually after AGP upgrades.
+- `forbiddenPatterns` is `emptyList()`. No rule is forbidden by default.
+
+**AI Agent**: These defaults are already set. You MUST NOT include them in
+the configuration block. If the user asks "how do I make CI fast?", the
+answer is "it already is — `check` only runs the fast path."
+
+## Common pitfalls
+
+- **Library modules**: applying the plugin to a `com.android.library` module
+  is unsupported. Library modules don't run R8 themselves; their consumer
+  rules show up in the application module's baseline, which is where the
+  plugin must live.
+- **`isMinifyEnabled = false`**: the plugin requires the target variant to
+  have minification enabled. The plugin throws a configuration-time error
+  if not, naming the variant.
+- **Committing only one baseline**: both files must be committed. The fast
+  path checks against `releaseFastRules.txt`, and `proguardShieldVerifyParity`
+  needs both files to compare them.
+- **AGP upgrade without re-verifying**: a fast-path mismatch after an AGP
+  bump is silent until a baseline regen surfaces it. Always run
+  `proguardShieldVerifyParity` after AGP changes.
