@@ -81,10 +81,12 @@ ProGuard/R8 rules changed in :app for release.
 + -keep class com.example.NewlyAdded { *; }
 
 If this is intentional, re-baseline using ./gradlew :app:proguardShieldFastBaselineRelease
+Or use ./gradlew proguardShieldBaseline to re-baseline in entire project.
 ```
 
-To accept the changes, re-run `./gradlew proguardShieldBaseline`. Both baseline
-files update together.
+The recommended re-baseline command is the aggregate `./gradlew proguardShieldBaseline`
+— it regenerates **both** baseline files together so the fast and accurate paths
+stay in sync.
 
 ## Two implementations
 
