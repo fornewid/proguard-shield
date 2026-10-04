@@ -466,7 +466,7 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
-    fun `optimization guard names the library and version that adds a blocking rule`() {
+    fun `optimization failure shows only the rule diff`() {
         AndroidProject(
             pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG,
             dependencies = "implementation 'com.example:sdk:1.0'",
@@ -481,8 +481,64 @@ internal class ProGuardShieldPluginTest {
             val result = buildAndFail(project, ":app:proguardShieldOptimization")
             assertThat(result.output).contains("optimization-blocking rules changed in :app (release)")
             assertThat(result.output).contains("+ -dontobfuscate")
-            assertThat(result.output).contains("from com.example:sdk:2.0")
+            assertThat(result.output).doesNotContain("from com.example:sdk")
             assertThat(result.output).contains("./gradlew :app:proguardShieldOptimizationBaselineRelease")
+        }
+    }
+
+    @Test
+    fun `optimization lists library rules that reach code outside the library`() {
+        AndroidProject(
+            pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
+            dependencies = "implementation 'com.vendor:sdk:1.0'\nimplementation 'com.vendor:core:1.0'",
+        ).use { project ->
+            project.publishLocalAar(
+                "com.vendor", "sdk", "1.0",
+                """
+                -keep class com.google.gson.** { *; }
+                -ignorewarnings
+                -keep class com.vendor.sdk.** { *; }
+                -keep class * extends com.vendor.sdk.Api { *; }
+                -keep class com.vendor.core.** { *; }
+                """.trimIndent(),
+                classes = listOf("com.vendor.sdk.Api"),
+            )
+            project.publishLocalAar("com.vendor", "core", "1.0", "", classes = listOf("com.vendor.core.Util"))
+
+            build(project, ":app:proguardShieldOptimizationBaseline")
+
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST))
+                .isEqualTo("-ignorewarnings\n-keep class com.google.gson.** { *; }\n")
+            assertThat(project.readBaselineFile(OPTIMIZATION_TREE))
+                .isEqualTo("[com.vendor:sdk]\n-ignorewarnings\n-keep class com.google.gson.** { *; }\n")
+        }
+    }
+
+    @Test
+    fun `optimization failure with tree shows the changed rules under the library`() {
+        AndroidProject(
+            pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
+            dependencies = "implementation 'com.vendor:sdk:1.0'",
+        ).use { project ->
+            val own = "-keep class com.vendor.sdk.** { *; }"
+            project.publishLocalAar("com.vendor", "sdk", "1.0", own, classes = listOf("com.vendor.sdk.Api"))
+            project.publishLocalAar(
+                "com.vendor", "sdk", "2.0",
+                "$own\n-keep class com.google.gson.** {\n    *;\n}",
+                classes = listOf("com.vendor.sdk.Api"),
+            )
+            build(project, ":app:proguardShieldOptimizationBaseline")
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
+
+            project.replaceInAppBuildFile("com.vendor:sdk:1.0", "com.vendor:sdk:2.0")
+
+            val output = buildAndFail(project, ":app:proguardShieldOptimization").output
+            assertThat(output).contains("[com.vendor:sdk]")
+            assertThat(output).contains("+ -keep class com.google.gson.** {")
+            assertThat(output).contains("+ *;")
+            assertThat(output).contains("+ }")
+            assertThat(output).doesNotContain("Origins changed")
+            assertThat(output).doesNotContain("from com.vendor")
         }
     }
 

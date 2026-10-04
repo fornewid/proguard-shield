@@ -7,6 +7,7 @@ import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPluginExtension
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.LibraryKeepRuleOrigins
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.ProGuardShieldOptimizationTask
+import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.RuleOrigins
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.GenerateInjectedRulesTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.ProGuardShieldListTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.IgnoredLibraryKeepRules
@@ -16,6 +17,7 @@ import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.OutputFil
 import io.github.fornewid.gradle.plugins.proguardshield.internal.verify.ProGuardShieldVerifyParityTask
 import org.gradle.api.GradleException
 import org.gradle.api.Project
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.tasks.TaskProvider
 
 /**
@@ -224,10 +226,20 @@ internal object AndroidVariantHandler {
             val treeFile = baselineDirectory.file("${config.configurationName}OptimizationBlockingRules.tree.txt")
             val projectDirPath = project.projectDir.absolutePath
 
+            // External library artifacts (AAR/JAR): their classes tell each library's own packages apart.
+            val libraryArtifacts = variant.runtimeConfiguration.incoming
+                .artifactView { componentFilter { it is ModuleComponentIdentifier } }
+                .artifacts
+            val libraryArtifactLabels = libraryArtifacts.resolvedArtifacts.map { artifacts ->
+                artifacts.associate { it.file.absolutePath to RuleOrigins.of(it.id.componentIdentifier).label }
+            }
+
             fun ProGuardShieldOptimizationTask.configureOptimization(baseline: Boolean) {
                 this.ruleInputs.from(ruleInputs)
                 fastExtraDepNames.forEach { dependsOn(it) }
                 this.libraryOrigins.set(libraryOrigins)
+                this.libraryArtifacts.from(libraryArtifacts.artifactFiles)
+                this.libraryArtifactLabels.set(libraryArtifactLabels)
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)
                 this.projectDirPath.set(projectDirPath)

@@ -24,6 +24,8 @@ import java.io.File
  * Optimization mode: finds the rules that block R8's shrinking, obfuscation or
  * optimization in the rule files R8 reads, and keeps them in a baseline with
  * their origin (`<variant>OptimizationBlockingRules.txt`, optionally `.tree.txt`).
+ * External libraries' rules that reach code outside the library are listed
+ * too (LibraryRuleMatcher).
  *
  * Reads R8's inputs through the same AGP-internal accessors as the fullFast
  * mode, without running R8 and without adding anything to R8's inputs.
@@ -42,6 +44,15 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     /** Library rule file absolute path → the dependency that ships it. */
     @get:Input
     abstract val libraryOrigins: MapProperty<String, RuleOrigin>
+
+    /** External library artifacts (AAR/JAR) on the variant's runtime classpath; their classes set each library's own packages. */
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val libraryArtifacts: ConfigurableFileCollection
+
+    /** Library artifact absolute path → `group:module`. */
+    @get:Input
+    abstract val libraryArtifactLabels: MapProperty<String, String>
 
     @get:Input
     abstract val configurationName: Property<String>
@@ -77,6 +88,7 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
         val configName = configurationName.get()
         val projectDir = File(projectDirPath.get())
         val origins = libraryOrigins.get()
+        val packages by lazy { LibraryPackages.read(libraryArtifactLabels.get().mapKeys { File(it.key) }) }
 
         // Every output below is sorted or compared as a set, so file order does not matter.
         val rules = ruleInputs.files
@@ -84,7 +96,10 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
             .flatMap { file ->
                 val origin = RuleOrigins.resolve(file, origins, projectDir, path)
                 RuleNormalizer.normalizeUnits(file.readText())
-                    .filter { OptimizationBlockingRuleMatcher.matches(it) }
+                    .filter { unit ->
+                        OptimizationBlockingRuleMatcher.matches(unit) ||
+                            (origin.isLibrary && LibraryRuleMatcher.matches(unit, origin.label, packages))
+                    }
                     .map { BlockingRule(it.joinToString("\n"), origin) }
             }
 

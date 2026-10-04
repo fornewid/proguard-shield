@@ -11,7 +11,10 @@ import java.io.Serializable
  *
  * @property label version-less name written to baselines, e.g. `com.example:sdk`, `:lib`, `<agp>`
  */
-internal data class RuleOrigin(val label: String) : Serializable
+internal data class RuleOrigin(val label: String) : Serializable {
+    /** An external module (`group:module`), not a project module (`:lib`), `<agp>` or `<unresolved>`. */
+    val isLibrary: Boolean get() = !label.startsWith(":") && !label.startsWith("<")
+}
 
 internal object RuleOrigins {
 

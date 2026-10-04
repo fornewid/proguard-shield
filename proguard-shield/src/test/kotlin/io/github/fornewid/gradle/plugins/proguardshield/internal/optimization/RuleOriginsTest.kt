@@ -61,6 +61,15 @@ class RuleOriginsTest {
             .isEqualTo(RuleOrigin("<unresolved>"))
     }
 
+    @Test
+    fun `only external modules are libraries`() {
+        assertThat(RuleOrigin("com.example:sdk").isLibrary).isTrue()
+        assertThat(RuleOrigin(":lib").isLibrary).isFalse()
+        assertThat(RuleOrigin(":").isLibrary).isFalse()
+        assertThat(RuleOrigin("<agp>").isLibrary).isFalse()
+        assertThat(RuleOrigin("<unresolved>").isLibrary).isFalse()
+    }
+
     private fun module(group: String, name: String, version: String): ModuleComponentIdentifier =
         object : ModuleComponentIdentifier {
             override fun getGroup() = group
