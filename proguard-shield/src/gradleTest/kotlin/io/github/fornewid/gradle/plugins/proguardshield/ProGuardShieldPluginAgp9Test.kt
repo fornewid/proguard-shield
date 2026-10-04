@@ -26,8 +26,12 @@ internal class ProGuardShieldPluginAgp9Test {
 
     private fun newProject(
         proguardRules: String = AndroidProject.DEFAULT_PROGUARD_RULES,
+        releaseExtra: String = "",
+        dependencies: String = "",
     ) = AndroidProject(
         proguardRules = proguardRules,
+        releaseExtra = releaseExtra,
+        dependencies = dependencies,
         // Resource shrinking on: AGP 9 then emits no AAPT2 keep rules, so the
         // known fast-path gap (#30) does not mask other AGP 9 regressions.
         shrinkResources = true,
@@ -86,6 +90,33 @@ internal class ProGuardShieldPluginAgp9Test {
         newProject().use { project ->
             val result = build(project, ":app:proguardShieldVerifyParity")
             assertThat(result.output).contains("parity holds")
+        }
+    }
+
+    @Test
+    fun `fast path drops consumer rules ignored via ignoreFrom on AGP 9`() {
+        newProject(
+            releaseExtra = """
+                optimization {
+                    keepRules {
+                        ignoreFrom 'com.example:ignored'
+                    }
+                }
+            """.trimIndent(),
+            dependencies = """
+                implementation 'com.example:ignored:1.0'
+                implementation 'com.example:kept:1.0'
+            """.trimIndent(),
+        ).use { project ->
+            project.publishLocalAar("com.example", "ignored", "1.0", "-keep class com.example.ignored.Marker")
+            project.publishLocalAar("com.example", "kept", "1.0", "-keep class com.example.kept.Marker")
+
+            val result = build(project, ":app:proguardShieldVerifyParity")
+
+            assertThat(result.output).contains("parity holds")
+            val fast = project.readBaselineFile(FAST_BASELINE)!!
+            assertThat(fast).contains("com.example.kept.Marker")
+            assertThat(fast).doesNotContain("com.example.ignored.Marker")
         }
     }
 
