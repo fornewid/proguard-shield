@@ -13,14 +13,14 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 
 /**
- * Reads the accurate and fast baseline files for a variant after both have
+ * Reads the full and fullFast baseline files for a variant after both have
  * been (re)generated, and fails the build if their contents disagree.
  *
  * The intent is a deliberate parity check at known moments — first install,
- * AGP upgrade — where the developer wants a positive signal that the fast
- * path's reflection-based extraction still produces the same baseline R8
- * itself would. Daily / CI builds run only the fast path; this task is the
- * explicit gate that says "fast is trustworthy on this setup".
+ * AGP upgrade — where the developer wants a positive signal that fullFast's
+ * reflection-based extraction still produces the same baseline R8 itself
+ * would. Daily / CI builds run only fullFast; this task is the explicit gate
+ * that says "fullFast is trustworthy on this setup".
  */
 internal abstract class ProGuardShieldVerifyParityTask : DefaultTask() {
 
@@ -80,8 +80,8 @@ internal abstract class ProGuardShieldVerifyParityTask : DefaultTask() {
         val message = buildString {
             appendLine(
                 "ProGuard Shield parity FAILED for ${projectPath.get()} (${configurationName.get()}). " +
-                    "The accurate baseline (${accurate.name}) and the fast baseline (${fast.name}) " +
-                    "diverge — the fast path cannot be trusted on this setup until the cause is investigated.",
+                    "The full baseline (${accurate.name}) and the fullFast baseline (${fast.name}) " +
+                    "diverge — fullFast cannot be trusted on this setup until the cause is investigated.",
             )
             appendLine()
             appendLine("Lines only in ${accurate.name}:")
@@ -91,7 +91,7 @@ internal abstract class ProGuardShieldVerifyParityTask : DefaultTask() {
             if (onlyFast.isEmpty()) appendLine("  (none)") else onlyFast.forEach { appendLine("  + $it") }
             appendLine()
             appendLine(
-                "Run ./gradlew ${projectPath.get()}:proguardShield to use the accurate path until parity is restored, " +
+                "Run ./gradlew ${projectPath.get()}:proguardShieldFull to use the full mode until parity is restored, " +
                     "and please file an issue (please include the AGP version): " +
                     "https://github.com/fornewid/proguard-shield/issues",
             )

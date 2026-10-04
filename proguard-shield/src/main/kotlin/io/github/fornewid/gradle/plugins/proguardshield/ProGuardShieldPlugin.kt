@@ -18,13 +18,13 @@ public class ProGuardShieldPlugin : Plugin<Project> {
 
         internal const val PROGUARD_SHIELD_EXTENSION_NAME = "proguardShield"
 
-        internal const val PROGUARD_SHIELD_TASK_NAME = "proguardShield"
+        internal const val PROGUARD_SHIELD_FULL_TASK_NAME = "proguardShieldFull"
 
-        internal const val PROGUARD_SHIELD_BASELINE_TASK_NAME = "proguardShieldBaseline"
+        internal const val PROGUARD_SHIELD_FULL_BASELINE_TASK_NAME = "proguardShieldFullBaseline"
 
-        internal const val PROGUARD_SHIELD_FAST_TASK_NAME = "proguardShieldFast"
+        internal const val PROGUARD_SHIELD_FULL_FAST_TASK_NAME = "proguardShieldFullFast"
 
-        internal const val PROGUARD_SHIELD_FAST_BASELINE_TASK_NAME = "proguardShieldFastBaseline"
+        internal const val PROGUARD_SHIELD_FULL_FAST_BASELINE_TASK_NAME = "proguardShieldFullFastBaseline"
 
         internal const val PROGUARD_SHIELD_VERIFY_PARITY_TASK_NAME = "proguardShieldVerifyParity"
 
@@ -43,38 +43,36 @@ public class ProGuardShieldPlugin : Plugin<Project> {
             target.objects,
         )
 
-        // Accurate (approach 1): runs R8 with -printconfiguration. Reserved
-        // for explicit invocation; not on the default `check` lifecycle.
-        val guardTask = target.tasks.register(PROGUARD_SHIELD_TASK_NAME) {
+        // Full: the full merged rule set as R8 prints it. Runs R8 with
+        // -printconfiguration, public AGP API only. Reserved for explicit
+        // invocation; not on the default `check` lifecycle.
+        val fullGuardTask = target.tasks.register(PROGUARD_SHIELD_FULL_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
-            description = "Guard against unintentional ProGuard/R8 rule changes (accurate, runs R8)"
+            description = "Guard against unintentional ProGuard/R8 rule changes (full, runs R8)"
         }
-        // The baseline aggregate writes both files in one shot — it is the
-        // command users run on first install or after intentional rule
-        // changes, and they need both committed for the fast path to verify
-        // against the same source of truth.
-        val baselineTask = target.tasks.register(PROGUARD_SHIELD_BASELINE_TASK_NAME) {
+        val fullBaselineTask = target.tasks.register(PROGUARD_SHIELD_FULL_BASELINE_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
-            description = "Save current ProGuard/R8 rules to both baseline files (accurate + fast)"
+            description = "Save current ProGuard/R8 rules to the full baseline file (runs R8)"
         }
 
-        // Fast (approach 2-B): reads R8 rule inputs directly. Wired to the
-        // `check` lifecycle so every CI build catches drift cheaply.
-        val fastGuardTask = target.tasks.register(PROGUARD_SHIELD_FAST_TASK_NAME) {
+        // FullFast: the same full rule set read from R8's inputs without
+        // running R8. Wired to the `check` lifecycle so every CI build catches
+        // drift cheaply.
+        val fullFastGuardTask = target.tasks.register(PROGUARD_SHIELD_FULL_FAST_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
-            description = "Guard against unintentional ProGuard/R8 rule changes (fast, skips R8)"
+            description = "Guard against unintentional ProGuard/R8 rule changes (fullFast, skips R8)"
         }
-        val fastBaselineTask = target.tasks.register(PROGUARD_SHIELD_FAST_BASELINE_TASK_NAME) {
+        val fullFastBaselineTask = target.tasks.register(PROGUARD_SHIELD_FULL_FAST_BASELINE_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
-            description = "Save current ProGuard rule inputs to the fast baseline file (skips R8)"
+            description = "Save current ProGuard rule inputs to the fullFast baseline file (skips R8)"
         }
 
         // Parity verification: regenerates both baselines and byte-compares
         // them. Run this on first install and after every AGP upgrade to
-        // confirm that the fast path is trustworthy on the current setup.
+        // confirm that fullFast is trustworthy on the current setup.
         val verifyParityTask = target.tasks.register(PROGUARD_SHIELD_VERIFY_PARITY_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
-            description = "Verify that the accurate and fast baselines are byte-identical (run on first install / AGP upgrade)"
+            description = "Verify that the full and fullFast baselines are byte-identical (run on first install / AGP upgrade)"
         }
 
         // Only application modules produce a fully merged ProGuard configuration that
@@ -84,18 +82,18 @@ public class ProGuardShieldPlugin : Plugin<Project> {
             AndroidVariantHandler.configureVariants(
                 project = target,
                 extension = extension,
-                guardTask = guardTask,
-                baselineTask = baselineTask,
-                fastGuardTask = fastGuardTask,
-                fastBaselineTask = fastBaselineTask,
+                fullGuardTask = fullGuardTask,
+                fullBaselineTask = fullBaselineTask,
+                fullFastGuardTask = fullFastGuardTask,
+                fullFastBaselineTask = fullFastBaselineTask,
                 verifyParityTask = verifyParityTask,
             )
         }
 
-        // `check` runs only the fast path — accurate is reserved for
-        // explicit invocation (`./gradlew :app:proguardShield`) and for
-        // the parity-verification flow (`./gradlew :app:proguardShieldVerifyParity`).
-        attachToCheckTask(target, fastGuardTask)
+        // `check` runs only fullFast — full is reserved for explicit
+        // invocation (`./gradlew :app:proguardShieldFull`) and for the
+        // parity-verification flow (`./gradlew :app:proguardShieldVerifyParity`).
+        attachToCheckTask(target, fullFastGuardTask)
     }
 
     private fun attachToCheckTask(target: Project, guardTask: TaskProvider<*>) {

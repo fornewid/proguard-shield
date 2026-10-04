@@ -57,15 +57,15 @@ variant name (e.g. `configuration("freeRelease")`), not the build type — add o
 ### Step 2: Generate a baseline
 
 ```bash
-./gradlew proguardShieldBaseline
+./gradlew proguardShieldFullBaseline proguardShieldFullFastBaseline
 ```
 
 Creates baseline files under `proguardShield/`:
 
 ```
 proguardShield/
-├── releaseRules.txt        # accurate path — what R8 emits via -printconfiguration
-└── releaseFastRules.txt    # fast path — same content, captured without running R8
+├── releaseFullRules.txt        # full — what R8 emits via -printconfiguration
+└── releaseFullFastRules.txt    # fullFast — same content, captured without running R8
 ```
 
 Commit both files to version control.
@@ -76,7 +76,7 @@ Commit both files to version control.
 ./gradlew check
 ```
 
-The `check` lifecycle runs the **fast** path, which skips R8 itself. It still
+The `check` lifecycle runs the **fullFast** mode, which skips R8 itself. It still
 depends on the tasks that produce R8's inputs (including compilation of the
 variant), so it takes seconds only once those are up to date — it is cheapest
 in a CI job that already assembles the target variant. If the merged rule set
@@ -86,13 +86,13 @@ differs from the baseline, the build fails with a diff:
 ProGuard/R8 rules changed in :app for release.
 + -keep class com.example.NewlyAdded { *; }
 
-If this is intentional, re-baseline using ./gradlew :app:proguardShieldFastBaselineRelease
-Or use ./gradlew proguardShieldBaseline to re-baseline in entire project.
+If this is intentional, re-baseline using ./gradlew :app:proguardShieldFullFastBaselineRelease
+Or use ./gradlew proguardShieldFullFastBaseline to re-baseline in entire project.
 ```
 
-The recommended re-baseline command is the aggregate `./gradlew proguardShieldBaseline`
-— it regenerates **both** baseline files together so the fast and accurate paths
-stay in sync.
+Re-baseline both files together with
+`./gradlew proguardShieldFullBaseline proguardShieldFullFastBaseline` so the full
+and fullFast modes stay in sync.
 
 ## Two implementations
 
@@ -102,19 +102,19 @@ check. They differ in how they reach the rules:
 
 | Task family | What runs | Speed | AGP coupling |
 |---|---|---|---|
-| `proguardShield{Variant}` | full R8 with `-printconfiguration` | slow (minutes on real apps) | public AGP API only |
-| `proguardShieldFast{Variant}` | reads R8 inputs directly via reflection | fast (no R8; still runs R8's input tasks, e.g. compilation) | uses AGP internal class (`ProguardConfigurableTask`) |
+| `proguardShieldFull{Variant}` | full R8 with `-printconfiguration` | slow (minutes on real apps) | public AGP API only |
+| `proguardShieldFullFast{Variant}` | reads R8 inputs directly via reflection | fast (no R8; still runs R8's input tasks, e.g. compilation) | uses AGP internal class (`ProguardConfigurableTask`) |
 
-Daily `check` runs only the fast path. After every AGP upgrade, run the parity
-verification task to confirm the fast path's reflection contract still holds:
+Daily `check` runs only fullFast. After every AGP upgrade, run the parity
+verification task to confirm fullFast's reflection contract still holds:
 
 ```bash
 ./gradlew :app:proguardShieldVerifyParity
 ```
 
-This regenerates both baselines and byte-compares them. Divergence means the
-fast path can no longer be trusted on this AGP version — fall back to the
-accurate `proguardShield` task and please file an issue.
+This regenerates both baselines and byte-compares them. Divergence means
+fullFast can no longer be trusted on this AGP version — fall back to the full
+`proguardShieldFull` task and please file an issue.
 
 ## Forbidden patterns
 
@@ -157,6 +157,22 @@ proguardShield {
 |---|---|---|
 | `baselineDir` | `"proguardShield"` | Directory (relative to the module) where baseline files are written. |
 | `forbiddenPatterns` | `[]` | Regex patterns that fail the build whenever a matching rule appears. |
+
+## Migrating from 0.0.4
+
+0.0.5 renames the two modes; their behavior is unchanged.
+
+| 0.0.4 | 0.0.5 |
+|---|---|
+| `proguardShield{Variant}` / `proguardShieldBaseline{Variant}` (accurate) | `proguardShieldFull{Variant}` / `proguardShieldFullBaseline{Variant}` |
+| `proguardShieldFast{Variant}` / `proguardShieldFastBaseline{Variant}` | `proguardShieldFullFast{Variant}` / `proguardShieldFullFastBaseline{Variant}` |
+| `proguardShield`, `proguardShieldBaseline` (aggregates) | `proguardShieldFull`, `proguardShieldFullBaseline` (no combined baseline aggregate) |
+| `proguardShieldFast`, `proguardShieldFastBaseline` (aggregates) | `proguardShieldFullFast`, `proguardShieldFullFastBaseline` |
+| `<variant>Rules.txt` | `<variant>FullRules.txt` |
+| `<variant>FastRules.txt` | `<variant>FullFastRules.txt` |
+
+Rename the committed baseline files (`git mv`), or regenerate them with
+`./gradlew proguardShieldFullBaseline proguardShieldFullFastBaseline`.
 
 ## Limitations
 

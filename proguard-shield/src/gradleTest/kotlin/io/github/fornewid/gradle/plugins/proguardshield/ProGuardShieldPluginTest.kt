@@ -9,88 +9,78 @@ import org.junit.jupiter.api.Test
 internal class ProGuardShieldPluginTest {
 
     companion object {
-        private const val ACCURATE_BASELINE = "proguardShield/releaseRules.txt"
-        private const val FAST_BASELINE = "proguardShield/releaseFastRules.txt"
-        private const val FAST_BASELINE_NAME = "releaseFastRules.txt"
+        private const val FULL_BASELINE = "proguardShield/releaseFullRules.txt"
+        private const val FULL_FAST_BASELINE = "proguardShield/releaseFullFastRules.txt"
+        private const val FULL_FAST_BASELINE_NAME = "releaseFullFastRules.txt"
     }
 
     @Test
-    fun `accurate baseline task writes the accurate baseline only`() {
+    fun `full baseline task writes the full baseline only`() {
         AndroidProject().use { project ->
-            val result = build(project, ":app:proguardShieldBaselineRelease")
+            val result = build(project, ":app:proguardShieldFullBaselineRelease")
 
             assertThat(result.output).contains("ProGuard Shield baseline created")
-            assertThat(project.baselineFileExists(ACCURATE_BASELINE)).isTrue()
-            assertThat(project.baselineFileExists(FAST_BASELINE)).isFalse()
+            assertThat(project.baselineFileExists(FULL_BASELINE)).isTrue()
+            assertThat(project.baselineFileExists(FULL_FAST_BASELINE)).isFalse()
 
-            val baseline = project.readBaselineFile(ACCURATE_BASELINE)!!
+            val baseline = project.readBaselineFile(FULL_BASELINE)!!
             assertThat(baseline).contains("-keepattributes")
         }
     }
 
     @Test
-    fun `fast baseline task writes the fast baseline only`() {
+    fun `fullFast baseline task writes the fullFast baseline only`() {
         AndroidProject().use { project ->
-            val result = build(project, ":app:proguardShieldFastBaselineRelease")
+            val result = build(project, ":app:proguardShieldFullFastBaselineRelease")
 
             assertThat(result.output).contains("ProGuard Shield baseline created")
-            assertThat(project.baselineFileExists(FAST_BASELINE)).isTrue()
-            assertThat(project.baselineFileExists(ACCURATE_BASELINE)).isFalse()
+            assertThat(project.baselineFileExists(FULL_FAST_BASELINE)).isTrue()
+            assertThat(project.baselineFileExists(FULL_BASELINE)).isFalse()
         }
     }
 
     @Test
-    fun `combined baseline aggregate writes both baseline files`() {
+    fun `full and fullFast baselines are bit-identical`() {
         AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
-            assertThat(project.baselineFileExists(ACCURATE_BASELINE)).isTrue()
-            assertThat(project.baselineFileExists(FAST_BASELINE)).isTrue()
-        }
-    }
-
-    @Test
-    fun `accurate and fast baselines are bit-identical`() {
-        AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
-
-            val accurate = project.readBaselineFile(ACCURATE_BASELINE)!!
-            val fast = project.readBaselineFile(FAST_BASELINE)!!
+            val accurate = project.readBaselineFile(FULL_BASELINE)!!
+            val fast = project.readBaselineFile(FULL_FAST_BASELINE)!!
             assertThat(fast).isEqualTo(accurate)
         }
     }
 
     @Test
-    fun `fast baseline task does not run the R8 task`() {
+    fun `fullFast baseline task does not run the R8 task`() {
         AndroidProject().use { project ->
-            val result = build(project, ":app:proguardShieldFastBaselineRelease")
+            val result = build(project, ":app:proguardShieldFullFastBaselineRelease")
             assertThat(result.task(":app:minifyReleaseWithR8")).isNull()
         }
     }
 
     @Test
-    fun `accurate baseline task runs the R8 task`() {
+    fun `full baseline task runs the R8 task`() {
         AndroidProject().use { project ->
-            val result = build(project, ":app:proguardShieldBaselineRelease")
+            val result = build(project, ":app:proguardShieldFullBaselineRelease")
             assertThat(result.task(":app:minifyReleaseWithR8")).isNotNull()
         }
     }
 
     @Test
-    fun `accurate guard aggregate runs only the accurate per-variant task`() {
+    fun `full guard aggregate runs only the full per-variant task`() {
         AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
-            val result = build(project, ":app:proguardShield")
-            assertThat(result.task(":app:proguardShieldRelease")).isNotNull()
-            assertThat(result.task(":app:proguardShieldFastRelease")).isNull()
+            val result = build(project, ":app:proguardShieldFull")
+            assertThat(result.task(":app:proguardShieldFullRelease")).isNotNull()
+            assertThat(result.task(":app:proguardShieldFullFastRelease")).isNull()
         }
     }
 
     @Test
-    fun `check lifecycle runs only the fast path`() {
+    fun `check runs fullFast but not full`() {
         AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
             // --dry-run inspects the task graph without executing tasks, so
             // we can confirm what `check` would trigger without paying the
@@ -104,10 +94,10 @@ internal class ProGuardShieldPluginTest {
                 .mapNotNull { taskLine.find(it)?.groupValues?.get(1) }
                 .map { ":app:$it" }
                 .toSet()
-            assertThat(scheduledTasks).contains(":app:proguardShieldFastRelease")
-            // Accurate path stays out of `check` so CI does not pay the
-            // R8 cost on every build.
-            assertThat(scheduledTasks).doesNotContain(":app:proguardShieldRelease")
+            assertThat(scheduledTasks).contains(":app:proguardShieldFullFastRelease")
+            // Full stays out of `check` so CI does not pay the R8 cost on
+            // every build.
+            assertThat(scheduledTasks).doesNotContain(":app:proguardShieldFullRelease")
             assertThat(scheduledTasks).doesNotContain(":app:minifyReleaseWithR8")
         }
     }
@@ -118,45 +108,45 @@ internal class ProGuardShieldPluginTest {
             val result = build(project, ":app:proguardShieldVerifyParity")
             assertThat(result.output).contains("parity holds")
             // Both baseline files exist after the verify task runs.
-            assertThat(project.baselineFileExists(ACCURATE_BASELINE)).isTrue()
-            assertThat(project.baselineFileExists(FAST_BASELINE)).isTrue()
-            assertThat(project.readBaselineFile(ACCURATE_BASELINE))
-                .isEqualTo(project.readBaselineFile(FAST_BASELINE))
+            assertThat(project.baselineFileExists(FULL_BASELINE)).isTrue()
+            assertThat(project.baselineFileExists(FULL_FAST_BASELINE)).isTrue()
+            assertThat(project.readBaselineFile(FULL_BASELINE))
+                .isEqualTo(project.readBaselineFile(FULL_FAST_BASELINE))
         }
     }
 
     @Test
     fun `verifyParity runs in the same build as the guard tasks`() {
         AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
             val result = build(
                 project,
-                ":app:proguardShield",
-                ":app:proguardShieldFast",
+                ":app:proguardShieldFull",
+                ":app:proguardShieldFullFast",
                 ":app:proguardShieldVerifyParity",
             )
             assertThat(result.output).contains("parity holds")
             // Guards must check the committed baselines before the parity
             // task regenerates them.
             val order = result.tasks.map { it.path }
-            assertThat(order.indexOf(":app:proguardShieldRelease"))
-                .isLessThan(order.indexOf(":app:proguardShieldBaselineRelease"))
-            assertThat(order.indexOf(":app:proguardShieldFastRelease"))
-                .isLessThan(order.indexOf(":app:proguardShieldFastBaselineRelease"))
+            assertThat(order.indexOf(":app:proguardShieldFullRelease"))
+                .isLessThan(order.indexOf(":app:proguardShieldFullBaselineRelease"))
+            assertThat(order.indexOf(":app:proguardShieldFullFastRelease"))
+                .isLessThan(order.indexOf(":app:proguardShieldFullFastBaselineRelease"))
         }
     }
 
     @Test
     fun `verifyParity fails when the two baselines diverge`() {
         AndroidProject().use { project ->
-            // Generate both baselines, then mutate the fast one out-of-band
+            // Generate both baselines, then mutate the fullFast one out-of-band
             // so the byte-compare must fail. Touching the file directly is
-            // the only way to simulate a parity break — the regular fast
-            // and accurate paths agree by construction.
-            build(project, ":app:proguardShieldBaseline")
+            // the only way to simulate a parity break — the regular full
+            // and fullFast modes agree by construction.
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
-            val fastFile = project.dir.resolve("app/proguardShield/$FAST_BASELINE_NAME")
+            val fastFile = project.dir.resolve("app/proguardShield/$FULL_FAST_BASELINE_NAME")
             fastFile.writeText("-keep class com.example.NotInTheAccurateBaseline\n")
 
             val result = buildAndFail(
@@ -165,8 +155,8 @@ internal class ProGuardShieldPluginTest {
                 // Stop the dependent baseline tasks from regenerating the
                 // file we just mutated, so the verify step actually compares
                 // the divergent inputs.
-                "-x", ":app:proguardShieldFastBaselineRelease",
-                "-x", ":app:proguardShieldBaselineRelease",
+                "-x", ":app:proguardShieldFullFastBaselineRelease",
+                "-x", ":app:proguardShieldFullBaselineRelease",
             )
             assertThat(result.output).contains("parity FAILED")
             assertThat(result.output).contains("com.example.NotInTheAccurateBaseline")
@@ -174,7 +164,7 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
-    fun `fast path drops consumer rules ignored via keepRules DSL so parity holds`() {
+    fun `fullFast drops consumer rules ignored via keepRules DSL so parity holds`() {
         AndroidProject(
             // `ignoreExternalDependencies` exists on every supported AGP;
             // `ignoreFrom` (8.8+) is a newer alias feeding the same filter.
@@ -196,7 +186,7 @@ internal class ProGuardShieldPluginTest {
             val result = build(project, ":app:proguardShieldVerifyParity")
 
             assertThat(result.output).contains("parity holds")
-            val fast = project.readBaselineFile(FAST_BASELINE)!!
+            val fast = project.readBaselineFile(FULL_FAST_BASELINE)!!
             assertThat(fast).contains("com.example.kept.Marker")
             assertThat(fast).doesNotContain("com.example.ignored.Marker")
         }
@@ -205,38 +195,38 @@ internal class ProGuardShieldPluginTest {
     @Test
     fun `guard passes when rules have not changed`() {
         AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
-            val result = build(project, ":app:proguardShield")
+            val result = build(project, ":app:proguardShieldFull")
             assertThat(result.output).doesNotContain("rules changed")
         }
     }
 
     @Test
-    fun `accurate guard fails when a new rule is added`() {
+    fun `full guard fails when a new rule is added`() {
         AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
             project.updateProguardRules(
                 AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keep class com.example.Added { *; }",
             )
 
-            val result = buildAndFail(project, ":app:proguardShieldRelease")
+            val result = buildAndFail(project, ":app:proguardShieldFullRelease")
             assertThat(result.output).contains("rules changed")
             assertThat(result.output).contains("-keep class com.example.Added")
         }
     }
 
     @Test
-    fun `fast guard fails when a new rule is added`() {
+    fun `fullFast guard fails when a new rule is added`() {
         AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
             project.updateProguardRules(
                 AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keep class com.example.Added { *; }",
             )
 
-            val result = buildAndFail(project, ":app:proguardShieldFastRelease")
+            val result = buildAndFail(project, ":app:proguardShieldFullFastRelease")
             assertThat(result.output).contains("rules changed")
             assertThat(result.output).contains("-keep class com.example.Added")
         }
@@ -245,11 +235,11 @@ internal class ProGuardShieldPluginTest {
     @Test
     fun `guard fails when an existing rule is removed`() {
         AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
             project.updateProguardRules("# all rules removed")
 
-            val result = buildAndFail(project, ":app:proguardShieldRelease")
+            val result = buildAndFail(project, ":app:proguardShieldFullRelease")
             assertThat(result.output).contains("rules changed")
             assertThat(result.output).contains("-keepattributes")
         }
@@ -258,20 +248,20 @@ internal class ProGuardShieldPluginTest {
     @Test
     fun `rebaseline overwrites the stored baselines`() {
         AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
-            val before = project.readBaselineFile(ACCURATE_BASELINE)!!
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
+            val before = project.readBaselineFile(FULL_BASELINE)!!
 
             project.updateProguardRules(
                 AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keep class com.example.Rebaseline { *; }",
             )
-            build(project, ":app:proguardShieldBaseline")
-            val after = project.readBaselineFile(ACCURATE_BASELINE)!!
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
+            val after = project.readBaselineFile(FULL_BASELINE)!!
 
             assertThat(after).isNotEqualTo(before)
             assertThat(after).contains("-keep class com.example.Rebaseline")
 
-            // Fast baseline tracks the same change.
-            assertThat(project.readBaselineFile(FAST_BASELINE)).isEqualTo(after)
+            // The fullFast baseline tracks the same change.
+            assertThat(project.readBaselineFile(FULL_FAST_BASELINE)).isEqualTo(after)
         }
     }
 
@@ -284,7 +274,7 @@ internal class ProGuardShieldPluginTest {
                 }
             """.trimIndent(),
         ).use { project ->
-            val result = buildAndFail(project, ":app:proguardShield")
+            val result = buildAndFail(project, ":app:proguardShieldFull")
             assertThat(result.output).contains("could not resolve configuration")
             assertThat(result.output).contains("nonexistent")
             assertThat(result.output).contains("configuration(\"release\")")
@@ -294,7 +284,7 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
-    fun `forbidden pattern in app rules trips both accurate and fast paths`() {
+    fun `forbidden pattern in app rules trips both full and fullFast`() {
         val pluginConfig = """
             proguardShield {
                 configuration("release") {
@@ -303,22 +293,22 @@ internal class ProGuardShieldPluginTest {
             }
         """.trimIndent()
 
-        // accurate path
+        // full
         AndroidProject(
             pluginConfig = pluginConfig,
             proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-dontobfuscate",
         ).use { project ->
-            val result = buildAndFail(project, ":app:proguardShieldRelease")
+            val result = buildAndFail(project, ":app:proguardShieldFullRelease")
             assertThat(result.output).contains("forbidden rule patterns detected")
             assertThat(result.output).contains("-dontobfuscate")
         }
 
-        // fast path — same DSL, same rules, same outcome.
+        // fullFast — same DSL, same rules, same outcome.
         AndroidProject(
             pluginConfig = pluginConfig,
             proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-dontobfuscate",
         ).use { project ->
-            val result = buildAndFail(project, ":app:proguardShieldFastRelease")
+            val result = buildAndFail(project, ":app:proguardShieldFullFastRelease")
             assertThat(result.output).contains("forbidden rule patterns detected")
             assertThat(result.output).contains("-dontobfuscate")
         }
@@ -332,8 +322,8 @@ internal class ProGuardShieldPluginTest {
         ).use { project ->
             // Plain baseline + check should sail through; -dontobfuscate is
             // legal absent a policy that bans it.
-            build(project, ":app:proguardShieldBaseline")
-            val result = build(project, ":app:proguardShield")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
+            val result = build(project, ":app:proguardShieldFull")
             assertThat(result.output).doesNotContain("forbidden rule patterns")
         }
     }
@@ -352,13 +342,13 @@ internal class ProGuardShieldPluginTest {
                 }
             """.trimIndent(),
         ).use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
             project.updateProguardRules(
                 AndroidProject.DEFAULT_PROGUARD_RULES + "\n-dontobfuscate",
             )
 
-            val result = buildAndFail(project, ":app:proguardShieldRelease")
+            val result = buildAndFail(project, ":app:proguardShieldFullRelease")
             assertThat(result.output).contains("forbidden rule patterns detected")
             // We never reach the drift report because forbidden short-circuits.
             assertThat(result.output).doesNotContain("rules changed")
@@ -375,7 +365,7 @@ internal class ProGuardShieldPluginTest {
                 }
             """.trimIndent(),
         ).use { project ->
-            val result = buildAndFail(project, ":app:proguardShield")
+            val result = buildAndFail(project, ":app:proguardShieldFull")
             assertThat(result.output).contains("does not have minification enabled")
             assertThat(result.output).contains("isMinifyEnabled")
         }
@@ -397,7 +387,7 @@ internal class ProGuardShieldPluginTest {
                 }
             """.trimIndent(),
         ).use { project ->
-            val result = buildAndFail(project, ":app:proguardShield")
+            val result = buildAndFail(project, ":app:proguardShieldFull")
             assertThat(result.output).contains("android.buildTypes.release.isMinifyEnabled = true")
             assertThat(result.output).doesNotContain("android.buildTypes.devRelease")
         }

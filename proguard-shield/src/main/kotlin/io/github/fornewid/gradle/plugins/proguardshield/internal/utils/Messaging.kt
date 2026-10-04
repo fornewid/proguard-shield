@@ -7,8 +7,8 @@ internal object Messaging {
     fun rebaselineMessage(
         projectPath: String,
         configurationName: String,
-        baselineTaskPrefix: String = "proguardShield",
-        aggregateBaselineTask: String = ProGuardShieldPlugin.PROGUARD_SHIELD_BASELINE_TASK_NAME,
+        baselineTaskPrefix: String = "proguardShieldFull",
+        aggregateBaselineTask: String = ProGuardShieldPlugin.PROGUARD_SHIELD_FULL_BASELINE_TASK_NAME,
     ): String {
         val separator = if (projectPath == ":") "" else ":"
         return """

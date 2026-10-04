@@ -22,9 +22,9 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 
 /**
- * Approach 2-B: reads R8's ProGuard rule inputs directly, without invoking R8.
+ * The fullFast mode: reads R8's ProGuard rule inputs directly, without invoking R8.
  *
- * Much faster than approach 1 ([ProGuardShieldListTask][io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.ProGuardShieldListTask])
+ * Much faster than the full mode ([ProGuardShieldListTask][io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.ProGuardShieldListTask])
  * because the shrinking/dexing step is skipped, but trades away R8's runtime rule
  * generation. The captured baseline is the *source* rules (app rules + AAR
  * consumer rules + AAPT2-generated + default R8 rules), as opposed to R8's
@@ -103,7 +103,7 @@ internal abstract class ProGuardShieldFastListTask : DefaultTask() {
         val normalized = units.flatten().joinToString("\n")
 
         // Forbidden-pattern check first — strongest signal, no rebaseline can
-        // silence it. Both the accurate and fast tasks run the identical check
+        // silence it. Both the full and fullFast tasks run the identical check
         // on the identical normalized inputs, preserving parity.
         val violations = try {
             ForbiddenPatternChecker.check(units, forbiddenPatterns.get())
@@ -139,8 +139,8 @@ internal abstract class ProGuardShieldFastListTask : DefaultTask() {
                 val rebaseline = Messaging.rebaselineMessage(
                     projectPath = path,
                     configurationName = configName,
-                    baselineTaskPrefix = "proguardShieldFast",
-                    aggregateBaselineTask = ProGuardShieldPlugin.PROGUARD_SHIELD_FAST_BASELINE_TASK_NAME,
+                    baselineTaskPrefix = "proguardShieldFullFast",
+                    aggregateBaselineTask = ProGuardShieldPlugin.PROGUARD_SHIELD_FULL_FAST_BASELINE_TASK_NAME,
                 )
                 logger.error(result.format(withColor = true, rebaselineMessage = rebaseline))
                 throw GradleException(result.format(withColor = false, rebaselineMessage = rebaseline))
