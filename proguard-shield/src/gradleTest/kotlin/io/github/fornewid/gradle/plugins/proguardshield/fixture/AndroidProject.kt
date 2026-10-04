@@ -7,7 +7,10 @@ internal class AndroidProject(
     private val proguardRules: String = DEFAULT_PROGUARD_RULES,
     private val pluginConfig: String = DEFAULT_PLUGIN_CONFIG,
     private val minifyEnabled: Boolean = true,
+    private val shrinkResources: Boolean = false,
     private val extraProguardFiles: String = "",
+    private val agpVersion: String = System.getProperty("agpVersion") ?: DEFAULT_AGP_VERSION,
+    val gradleVersion: String? = null,
 ) : AutoCloseable {
 
     val dir: File = File("build/gradleTest/${UUID.randomUUID()}").apply { mkdirs() }
@@ -16,7 +19,6 @@ internal class AndroidProject(
         val pluginJar = System.getProperty("pluginJar")
             ?: error("pluginJar system property not set. Run via './gradlew :proguard-shield:gradleTest'")
         val escapedJar = pluginJar.replace("\\", "/")
-        val agpVersion = System.getProperty("agpVersion") ?: DEFAULT_AGP_VERSION
 
         dir.resolve("settings.gradle").writeText(
             """
@@ -70,6 +72,7 @@ internal class AndroidProject(
                 buildTypes {
                     release {
                         minifyEnabled true
+                        shrinkResources $shrinkResources
                         proguardFiles(
                             getDefaultProguardFile('proguard-android-optimize.txt'),
                             'proguard-rules.pro'$extraProguardFiles
