@@ -8,7 +8,7 @@ import java.util.zip.ZipInputStream
  * The packages each external library ships, read from its AAR or JAR, to tell a library's own code from
  * code it does not ship. The other modules of a library's Maven group count as its own.
  *
- * @param byLibrary `group:module` → packages of its classes
+ * @param byLibrary `group:module`, or `x.aar` for a file dependency → packages of its classes
  * @param appNamespace the app's namespace; a pattern that reaches it reaches the app's code
  */
 internal class LibraryPackages(byLibrary: Map<String, Set<String>>, private val appNamespace: String? = null) {
@@ -19,7 +19,7 @@ internal class LibraryPackages(byLibrary: Map<String, Set<String>>, private val 
 
     private val all: Set<String> = byLibrary.values.flatten().toSet()
 
-    /** Packages of the library [label] (`group:module`) and of the other modules in its group. */
+    /** Packages of the library [label] (`group:module`) and of the other modules in its group; a file (`x.aar`) has no group. */
     fun ownPackages(label: String): Set<String> = byGroup[label.substringBefore(':')].orEmpty()
 
     /**

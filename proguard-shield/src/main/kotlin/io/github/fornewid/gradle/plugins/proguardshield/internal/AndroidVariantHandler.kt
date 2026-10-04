@@ -17,7 +17,6 @@ import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.OutputFil
 import io.github.fornewid.gradle.plugins.proguardshield.internal.verify.ProGuardShieldVerifyParityTask
 import org.gradle.api.GradleException
 import org.gradle.api.Project
-import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.tasks.TaskProvider
 
 /**
@@ -227,7 +226,7 @@ internal object AndroidVariantHandler {
             val projectDirPath = project.projectDir.absolutePath
 
             val libraryArtifacts = variant.runtimeConfiguration.incoming
-                .artifactView { componentFilter { it is ModuleComponentIdentifier } }
+                .artifactView { componentFilter { RuleOrigins.of(it).isLibrary } }
                 .artifacts
             val appNamespace = variant.namespace
 

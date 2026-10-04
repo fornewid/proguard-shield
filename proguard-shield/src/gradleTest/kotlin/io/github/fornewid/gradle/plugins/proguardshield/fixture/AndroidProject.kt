@@ -147,10 +147,19 @@ internal class AndroidProject(
             </project>
             """.trimIndent(),
         )
-        ZipOutputStream(moduleDir.resolve("$name-$version.aar").outputStream()).use { aar ->
+        writeAar(moduleDir.resolve("$name-$version.aar"), "$group.$name", consumerRules, classes)
+    }
+
+    /** Writes an AAR to `app/libs/[fileName]`, for a `files('libs/...')` dependency. */
+    fun writeAppLibsAar(fileName: String, consumerRules: String, classes: List<String> = emptyList()) {
+        writeAar(dir.resolve("app/libs/$fileName").apply { parentFile.mkdirs() }, "local.libs", consumerRules, classes)
+    }
+
+    private fun writeAar(target: File, manifestPackage: String, consumerRules: String, classes: List<String>) {
+        ZipOutputStream(target.outputStream()).use { aar ->
             aar.putNextEntry(ZipEntry("AndroidManifest.xml"))
             aar.write(
-                "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"$group.$name\" />"
+                "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"$manifestPackage\" />"
                     .toByteArray(),
             )
             aar.putNextEntry(ZipEntry("classes.jar"))

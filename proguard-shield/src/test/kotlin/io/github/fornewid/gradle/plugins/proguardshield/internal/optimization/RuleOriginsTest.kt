@@ -25,9 +25,18 @@ class RuleOriginsTest {
     }
 
     @Test
+    fun `file dependencies are libraries labeled by file name`() {
+        val id = object : ComponentIdentifier {
+            override fun getDisplayName() = "local.jar"
+        }
+        assertThat(RuleOrigins.of(id)).isEqualTo(RuleOrigin("local.jar"))
+        assertThat(RuleOrigins.of(id).isLibrary).isTrue()
+    }
+
+    @Test
     fun `other components are unresolved`() {
         val id = object : ComponentIdentifier {
-            override fun getDisplayName() = "libs/local.jar"
+            override fun getDisplayName() = "unknown component"
         }
         assertThat(RuleOrigins.of(id)).isEqualTo(RuleOrigin("<unresolved>"))
     }

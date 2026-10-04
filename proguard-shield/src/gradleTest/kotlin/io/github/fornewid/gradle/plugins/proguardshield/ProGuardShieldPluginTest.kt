@@ -491,7 +491,7 @@ internal class ProGuardShieldPluginTest {
         AndroidProject(
             pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
             dependencies = "implementation 'com.vendor:sdk:1.0'\nimplementation 'com.vendor:core:1.0'\n" +
-                "implementation 'io.github.fornewid:core:1.0'",
+                "implementation 'io.github.fornewid:core:1.0'\nimplementation files('libs/vendor-file.aar')",
         ).use { project ->
             project.publishLocalAar(
                 "com.vendor", "sdk", "1.0",
@@ -511,15 +511,23 @@ internal class ProGuardShieldPluginTest {
                 "-keep class io.github.fornewid.** { *; }",
                 classes = listOf("io.github.fornewid.core.Util"),
             )
+            // A file dependency: checked like an external library, labeled by its file name.
+            project.writeAppLibsAar(
+                "vendor-file.aar",
+                "-keep class okhttp3.** { *; }\n-keep class com.vendor.file.** { *; }",
+                classes = listOf("com.vendor.file.Util"),
+            )
 
             build(project, ":app:proguardShieldOptimizationBaseline")
 
             assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo(
-                "-ignorewarnings\n-keep class com.google.gson.** { *; }\n-keep class io.github.fornewid.** { *; }\n",
+                "-ignorewarnings\n-keep class com.google.gson.** { *; }\n-keep class io.github.fornewid.** { *; }\n" +
+                    "-keep class okhttp3.** { *; }\n",
             )
             assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo(
                 "[com.vendor:sdk]\n-ignorewarnings\n-keep class com.google.gson.** { *; }\n\n" +
-                    "[io.github.fornewid:core]\n-keep class io.github.fornewid.** { *; }\n",
+                    "[io.github.fornewid:core]\n-keep class io.github.fornewid.** { *; }\n\n" +
+                    "[vendor-file.aar]\n-keep class okhttp3.** { *; }\n",
             )
         }
     }
