@@ -120,6 +120,17 @@ internal class ProGuardShieldPluginAgp9Test {
         }
     }
 
+    @Test
+    fun `optimization records app blocking rules on AGP 9`() {
+        newProject(proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keepattributes *").use { project ->
+            build(project, ":app:proguardShieldOptimizationBaseline")
+
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo("-keepattributes *\n")
+            assertThat(build(project, ":app:proguardShieldOptimization").output)
+                .doesNotContain("optimization-blocking rules changed")
+        }
+    }
+
     private companion object {
         const val AGP_VERSION = "9.4.1"
 
@@ -128,5 +139,6 @@ internal class ProGuardShieldPluginAgp9Test {
 
         const val FULL_BASELINE = "proguardShield/releaseFullRules.txt"
         const val FULL_FAST_BASELINE = "proguardShield/releaseFullFastRules.txt"
+        const val OPTIMIZATION_LIST = "proguardShield/releaseOptimizationBlockingRules.txt"
     }
 }

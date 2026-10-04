@@ -19,6 +19,24 @@ public open class ProGuardShieldConfiguration @Inject constructor(
     public override fun getName(): String = configurationName
 
     /**
+     * Track rules that block R8's shrinking, obfuscation or optimization
+     * (`-dontobfuscate`, keeps of every class, `-keepattributes *`, …) together
+     * with the dependency or module that adds them
+     * (`<variant>OptimizationBlockingRules.txt`). Runs as part of `check`.
+     * Enabled by default.
+     */
+    @get:Input
+    public var optimization: Boolean = true
+
+    /**
+     * Also write `<variant>OptimizationBlockingRules.tree.txt`, which groups the
+     * optimization-blocking rules by the dependency or module that adds them.
+     * Used only when [optimization] is enabled. Disabled by default.
+     */
+    @get:Input
+    public var tree: Boolean = false
+
+    /**
      * Regex patterns that must not appear anywhere in the merged R8 rule
      * input. Empty by default — the plugin enforces no policy unless the
      * project author declares one.

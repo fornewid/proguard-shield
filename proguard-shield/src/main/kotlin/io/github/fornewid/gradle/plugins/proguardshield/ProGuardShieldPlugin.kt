@@ -18,9 +18,9 @@ public class ProGuardShieldPlugin : Plugin<Project> {
 
         internal const val PROGUARD_SHIELD_EXTENSION_NAME = "proguardShield"
 
-        internal const val PROGUARD_SHIELD_TASK_NAME = "proguardShield"
+        internal const val PROGUARD_SHIELD_OPTIMIZATION_TASK_NAME = "proguardShieldOptimization"
 
-        internal const val PROGUARD_SHIELD_BASELINE_TASK_NAME = "proguardShieldBaseline"
+        internal const val PROGUARD_SHIELD_OPTIMIZATION_BASELINE_TASK_NAME = "proguardShieldOptimizationBaseline"
 
         internal const val PROGUARD_SHIELD_FULL_TASK_NAME = "proguardShieldFull"
 
@@ -49,11 +49,11 @@ public class ProGuardShieldPlugin : Plugin<Project> {
 
         // Optimization (default): rules that block R8's optimization, with
         // their origins. Wired to the `check` lifecycle.
-        val guardTask = target.tasks.register(PROGUARD_SHIELD_TASK_NAME) {
+        val optimizationGuardTask = target.tasks.register(PROGUARD_SHIELD_OPTIMIZATION_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
             description = "Guard against new optimization-blocking ProGuard/R8 rules"
         }
-        val baselineTask = target.tasks.register(PROGUARD_SHIELD_BASELINE_TASK_NAME) {
+        val optimizationBaselineTask = target.tasks.register(PROGUARD_SHIELD_OPTIMIZATION_BASELINE_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
             description = "Save the current optimization-blocking rules to the baseline file"
         }
@@ -96,8 +96,8 @@ public class ProGuardShieldPlugin : Plugin<Project> {
             AndroidVariantHandler.configureVariants(
                 project = target,
                 extension = extension,
-                guardTask = guardTask,
-                baselineTask = baselineTask,
+                optimizationGuardTask = optimizationGuardTask,
+                optimizationBaselineTask = optimizationBaselineTask,
                 fullGuardTask = fullGuardTask,
                 fullBaselineTask = fullBaselineTask,
                 fullFastGuardTask = fullFastGuardTask,
@@ -108,7 +108,7 @@ public class ProGuardShieldPlugin : Plugin<Project> {
 
         // `check` runs the optimization and fullFast modes of the variants that
         // enable them. Full is reserved for explicit invocation (it runs R8).
-        attachToCheckTask(target, guardTask, fullFastGuardTask)
+        attachToCheckTask(target, optimizationGuardTask, fullFastGuardTask)
     }
 
     private fun attachToCheckTask(target: Project, vararg guardTasks: TaskProvider<*>) {

@@ -12,6 +12,8 @@ internal class ProGuardShieldPluginTest {
         private const val FULL_BASELINE = "proguardShield/releaseFullRules.txt"
         private const val FULL_FAST_BASELINE = "proguardShield/releaseFullFastRules.txt"
         private const val FULL_FAST_BASELINE_NAME = "releaseFullFastRules.txt"
+        private const val OPTIMIZATION_LIST = "proguardShield/releaseOptimizationBlockingRules.txt"
+        private const val OPTIMIZATION_TREE = "proguardShield/releaseOptimizationBlockingRules.tree.txt"
     }
 
     @Test
@@ -430,6 +432,146 @@ internal class ProGuardShieldPluginTest {
             assertThat(scheduled).doesNotContain(":app:minifyReleaseWithR8")
             // Parity needs both full and fullFast.
             assertThat(build(project, ":app:tasks", "--all").output).doesNotContain("proguardShieldVerifyParityRelease")
+        }
+    }
+
+    @Test
+    fun `optimization is the default mode and neither runs nor changes R8`() {
+        AndroidProject(pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG).use { project ->
+            val result = build(project, ":app:proguardShieldOptimizationBaseline")
+
+            assertThat(result.task(":app:minifyReleaseWithR8")).isNull()
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.baselineFileExists(OPTIMIZATION_TREE)).isFalse()
+            assertThat(project.baselineFileExists(FULL_BASELINE)).isFalse()
+            assertThat(project.baselineFileExists(FULL_FAST_BASELINE)).isFalse()
+        }
+    }
+
+    @Test
+    fun `check runs the optimization guard by default`() {
+        AndroidProject(pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG).use { project ->
+            val scheduled = scheduledTasks(build(project, ":app:check", "--dry-run", "--console=plain").output)
+            assertThat(scheduled).contains(":app:proguardShieldOptimizationRelease")
+            assertThat(scheduled).doesNotContain(":app:proguardShieldFullFastRelease")
+            assertThat(scheduled).doesNotContain(":app:minifyReleaseWithR8")
+        }
+    }
+
+    @Test
+    fun `optimization baseline task writes only the optimization baseline`() {
+        AndroidProject().use { project ->
+            build(project, ":app:proguardShieldOptimizationBaseline")
+
+            assertThat(project.baselineFileExists(OPTIMIZATION_LIST)).isTrue()
+            assertThat(project.baselineFileExists(FULL_BASELINE)).isFalse()
+            assertThat(project.baselineFileExists(FULL_FAST_BASELINE)).isFalse()
+        }
+    }
+
+    @Test
+    fun `optimization lists blocking rules and groups them by origin`() {
+        AndroidProject(
+            pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
+            proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keepattributes *",
+            dependencies = "implementation 'com.example:risky:1.0'",
+        ).use { project ->
+            project.publishLocalAar("com.example", "risky", "1.0", "-dontobfuscate\n-keep class ** { *; }")
+
+            build(project, ":app:proguardShieldOptimizationBaseline")
+
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST))
+                .isEqualTo("-dontobfuscate\n-keep class ** { *; }\n-keepattributes *\n")
+            assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo(
+                "[:app]\n-keepattributes *\n\n[com.example:risky]\n-dontobfuscate\n-keep class ** { *; }\n",
+            )
+            assertThat(build(project, ":app:proguardShieldOptimization").output)
+                .doesNotContain("optimization-blocking rules changed")
+        }
+    }
+
+    @Test
+    fun `optimization guard names the library and version that adds a blocking rule`() {
+        AndroidProject(
+            pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG,
+            dependencies = "implementation 'com.example:sdk:1.0'",
+        ).use { project ->
+            project.publishLocalAar("com.example", "sdk", "1.0", "-keep class com.example.sdk.Marker")
+            project.publishLocalAar("com.example", "sdk", "2.0", "-keep class com.example.sdk.Marker\n-dontobfuscate")
+            build(project, ":app:proguardShieldOptimizationBaseline")
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
+
+            project.replaceInAppBuildFile("com.example:sdk:1.0", "com.example:sdk:2.0")
+
+            val result = buildAndFail(project, ":app:proguardShieldOptimization")
+            assertThat(result.output).contains("optimization-blocking rules changed in :app (release)")
+            assertThat(result.output).contains("+ -dontobfuscate")
+            assertThat(result.output).contains("from com.example:sdk:2.0")
+            assertThat(result.output).contains("./gradlew :app:proguardShieldOptimizationBaselineRelease")
+        }
+    }
+
+    @Test
+    fun `optimization ignores libraries excluded via the keepRules DSL`() {
+        AndroidProject(
+            pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG,
+            releaseExtra = """
+                optimization {
+                    keepRules {
+                        ignoreExternalDependencies 'com.example:ignored'
+                    }
+                }
+            """.trimIndent(),
+            dependencies = "implementation 'com.example:ignored:1.0'",
+        ).use { project ->
+            project.publishLocalAar("com.example", "ignored", "1.0", "-dontobfuscate")
+
+            build(project, ":app:proguardShieldOptimizationBaseline")
+
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
+        }
+    }
+
+    @Test
+    fun `optimization and parity run in one build`() {
+        AndroidProject().use { project ->
+            build(project, ":app:proguardShieldOptimizationBaseline")
+
+            val result = build(project, ":app:proguardShieldOptimization", ":app:proguardShieldVerifyParity")
+            assertThat(result.output).contains("parity holds")
+        }
+    }
+
+    @Test
+    fun `turning on tree later writes the tree file and keeps passing`() {
+        AndroidProject(
+            pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG,
+            proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keepattributes *",
+        ).use { project ->
+            build(project, ":app:proguardShieldOptimizationBaseline")
+
+            project.replaceInAppBuildFile(AndroidProject.MINIMAL_PLUGIN_CONFIG, AndroidProject.TREE_PLUGIN_CONFIG)
+
+            val result = build(project, ":app:proguardShieldOptimization")
+            assertThat(result.output).contains("ProGuard Shield baseline created")
+            assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo("[:app]\n-keepattributes *\n")
+        }
+    }
+
+    @Test
+    fun `optimization mode reuses the configuration cache`() {
+        AndroidProject(
+            pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
+            dependencies = "implementation 'com.example:sdk:1.0'",
+        ).use { project ->
+            project.publishLocalAar("com.example", "sdk", "1.0", "-dontobfuscate")
+
+            build(project, ":app:proguardShieldOptimizationBaseline", "--configuration-cache")
+            build(project, ":app:proguardShieldOptimization", "--configuration-cache")
+            val result = build(project, ":app:proguardShieldOptimization", "--configuration-cache")
+
+            assertThat(result.output).contains("Reusing configuration cache.")
+            assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo("[com.example:sdk]\n-dontobfuscate\n")
         }
     }
 

@@ -159,6 +159,14 @@ internal class AndroidProject(
         dir.resolve("app/proguard-rules.pro").writeText(newContent)
     }
 
+    /** Rewrites part of `app/build.gradle`, e.g. to change the plugin config or a dependency version. */
+    fun replaceInAppBuildFile(old: String, new: String) {
+        val buildFile = dir.resolve("app/build.gradle")
+        val content = buildFile.readText()
+        check(old in content) { "'$old' not found in app/build.gradle" }
+        buildFile.writeText(content.replace(old, new))
+    }
+
     fun readBaselineFile(path: String): String? {
         val file = dir.resolve("app/$path")
         return if (file.exists()) file.readText() else null
@@ -223,6 +231,14 @@ internal class AndroidProject(
         val MINIMAL_PLUGIN_CONFIG = """
             proguardShield {
                 configuration("release")
+            }
+        """.trimIndent()
+
+        val TREE_PLUGIN_CONFIG = """
+            proguardShield {
+                configuration("release") {
+                    tree = true
+                }
             }
         """.trimIndent()
     }

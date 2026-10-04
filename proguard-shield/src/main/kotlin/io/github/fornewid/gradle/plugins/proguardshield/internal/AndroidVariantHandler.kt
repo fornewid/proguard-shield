@@ -5,6 +5,8 @@ import com.android.build.api.variant.ApplicationVariant
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldConfiguration
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPluginExtension
+import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.LibraryKeepRuleOrigins
+import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.ProGuardShieldOptimizationTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.GenerateInjectedRulesTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.ProGuardShieldListTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.IgnoredLibraryKeepRules
@@ -26,8 +28,8 @@ internal object AndroidVariantHandler {
     fun configureVariants(
         project: Project,
         extension: ProGuardShieldPluginExtension,
-        guardTask: TaskProvider<*>,
-        baselineTask: TaskProvider<*>,
+        optimizationGuardTask: TaskProvider<*>,
+        optimizationBaselineTask: TaskProvider<*>,
         fullGuardTask: TaskProvider<*>,
         fullBaselineTask: TaskProvider<*>,
         fullFastGuardTask: TaskProvider<*>,
@@ -52,8 +54,8 @@ internal object AndroidVariantHandler {
                         baselineDir = extension.baselineDir.get(),
                         config = this,
                         variant = variant,
-                        guardTask = guardTask,
-                        baselineTask = baselineTask,
+                        optimizationGuardTask = optimizationGuardTask,
+                        optimizationBaselineTask = optimizationBaselineTask,
                         fullGuardTask = fullGuardTask,
                         fullBaselineTask = fullBaselineTask,
                         fullFastGuardTask = fullFastGuardTask,
@@ -69,7 +71,7 @@ internal object AndroidVariantHandler {
         // String sets; the lambda itself is not serialized into the CC state.
         // Every aggregate validates, so whichever mode the user runs reports it.
         listOf(
-            guardTask, baselineTask, fullGuardTask, fullBaselineTask,
+            optimizationGuardTask, optimizationBaselineTask, fullGuardTask, fullBaselineTask,
             fullFastGuardTask, fullFastBaselineTask, verifyParityTask,
         ).forEach { aggregate ->
             aggregate.configure { validateConfigurations(declaredConfigNames, matchedConfigs, allVariantNames) }
@@ -109,8 +111,8 @@ internal object AndroidVariantHandler {
         baselineDir: String,
         config: ProGuardShieldConfiguration,
         variant: ApplicationVariant,
-        guardTask: TaskProvider<*>,
-        baselineTask: TaskProvider<*>,
+        optimizationGuardTask: TaskProvider<*>,
+        optimizationBaselineTask: TaskProvider<*>,
         fullGuardTask: TaskProvider<*>,
         fullBaselineTask: TaskProvider<*>,
         fullFastGuardTask: TaskProvider<*>,
@@ -209,6 +211,45 @@ internal object AndroidVariantHandler {
         )
 
         val rootDir = project.rootDir.absolutePath
+
+        // ---- Optimization (default): optimization-blocking rules and their origins ----
+        if (config.optimization) {
+            val listFile = baselineDirectory.file("${config.configurationName}OptimizationBlockingRules.txt")
+            val treeFile = baselineDirectory.file("${config.configurationName}OptimizationBlockingRules.tree.txt")
+            val projectDirPath = project.projectDir.absolutePath
+
+            fun ProGuardShieldOptimizationTask.configureOptimization(baseline: Boolean) {
+                this.ruleInputs.from(ruleInputs)
+                fastExtraDepNames.forEach { dependsOn(it) }
+                // With full enabled, the injected `.pro` is one of R8's inputs.
+                if (config.full) dependsOn(injectTaskName)
+                // Runs only when this task is realized: maps each library rule file to its dependency.
+                val minifyTask = project.tasks.named(minifyTaskName).get()
+                libraryLabels.set(LibraryKeepRuleOrigins.labels(minifyTask))
+                libraryDetails.set(LibraryKeepRuleOrigins.details(minifyTask))
+                configurationName.set(config.configurationName)
+                projectPath.set(project.path)
+                this.projectDirPath.set(projectDirPath)
+                shouldBaseline.set(baseline)
+                pluginVersion.set(ProGuardShieldPlugin.VERSION)
+                tree.set(config.tree)
+                this.listFile.set(listFile)
+                if (config.tree) this.treeFile.set(treeFile)
+            }
+
+            val optimizationConfigGuardTask = project.tasks.register(
+                "proguardShieldOptimization$capitalizedName",
+                ProGuardShieldOptimizationTask::class.java,
+            ) { configureOptimization(baseline = false) }
+            optimizationGuardTask.configure { dependsOn(optimizationConfigGuardTask) }
+
+            val optimizationConfigBaselineTask = project.tasks.register(
+                "proguardShieldOptimizationBaseline$capitalizedName",
+                ProGuardShieldOptimizationTask::class.java,
+            ) { configureOptimization(baseline = true) }
+            optimizationBaselineTask.configure { dependsOn(optimizationConfigBaselineTask) }
+            optimizationConfigBaselineTask.configure { mustRunAfter(optimizationConfigGuardTask) }
+        }
 
         // ---- FullFast: the full rule set from R8's inputs, without running R8 ----
         if (config.fullFast) {
