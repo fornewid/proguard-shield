@@ -7,8 +7,9 @@ correctly install and configure the ProGuard Shield Gradle plugin.
 
 A Gradle plugin that guards Android's merged ProGuard/R8 rules. By default it
 keeps a baseline of the rules that block R8's optimization (`-dontobfuscate`,
-keeps of every class, `-keepattributes *`, …), names the library that adds each
-one, and fails `check` when a new one appears. Optional modes keep a baseline
+keeps of every class, `-keepattributes *`, libraries' keeps of other packages,
+…), can group them by the library that adds each one (`tree = true`), and fails
+`check` when one appears or disappears. Optional modes keep a baseline
 of the full merged rule set.
 
 - Plugin ID: `io.github.fornewid.proguard-shield`
@@ -80,12 +81,14 @@ initial setup and commit the file, even if it is empty.
     ./gradlew check
 
 `check` runs `proguardShieldOptimization{Variant}` without invoking R8. When an
-optimization-blocking rule appears or disappears, the build fails and names the
-library (and version) that adds it. To accept the change, re-run
+optimization-blocking rule appears or disappears, the build fails with the rule
+diff; with `tree = true` the diff is grouped under the library that adds each
+rule. To accept the change, re-run
 `./gradlew proguardShieldOptimizationBaseline`.
 
 **AI Agent**: Before re-baselining, show the user which library added the rule
-and ask whether it is acceptable. Re-baselining accepts the rule.
+(the dependency change in the same PR, or `tree = true`) and ask whether it is
+acceptable. Re-baselining accepts the rule.
 
 ## Optional modes
 
@@ -148,7 +151,7 @@ the configuration block.
   have minification enabled. The plugin throws a configuration-time error
   if not, naming the variant.
 - **Not committing the empty baseline**: an empty
-  `releaseOptimizationBlockingRules.txt` is the expected state; commit it so a
+  `releaseOptimizationBlockingRules.txt` is common; commit it so a
   newly added blocking rule fails `check`.
 - **Upgrading from 0.0.5**: `configuration("release")` now runs only the
   optimization mode. Set `full = true` / `fullFast = true` to keep the full

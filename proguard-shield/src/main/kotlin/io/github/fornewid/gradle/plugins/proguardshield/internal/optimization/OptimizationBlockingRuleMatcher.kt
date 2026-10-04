@@ -11,8 +11,9 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
  *   annotation, `extends` or `implements`, and whose member specs (for the
  *   member variants) are unrestricted
  *
- * The definition is fixed and deliberately narrow: annotation- or
- * inheritance-scoped rules are normal library rules and never match.
+ * The definition is fixed and narrow: annotation- or inheritance-scoped rules
+ * never match here. An external library's rules that reach code outside the
+ * library are matched by [LibraryRuleMatcher].
  */
 internal object OptimizationBlockingRuleMatcher {
 
