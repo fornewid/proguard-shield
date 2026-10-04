@@ -85,15 +85,7 @@ internal class ProGuardShieldPluginTest {
             // --dry-run inspects the task graph without executing tasks, so
             // we can confirm what `check` would trigger without paying the
             // lint / unit-test cost the throwaway fixture isn't set up for.
-            // BuildResult.task() returns null for dry-run skipped tasks, so
-            // parse the printed task names from stdout instead. --console=plain
-            // pins the output format Gradle uses across versions / TTY modes.
-            val result = build(project, ":app:check", "--dry-run", "--console=plain")
-            val taskLine = Regex("^:app:(\\S+)")
-            val scheduledTasks = result.output.lines()
-                .mapNotNull { taskLine.find(it)?.groupValues?.get(1) }
-                .map { ":app:$it" }
-                .toSet()
+            val scheduledTasks = scheduledTasks(build(project, ":app:check", "--dry-run", "--console=plain").output)
             assertThat(scheduledTasks).contains(":app:proguardShieldFullFastRelease")
             // Full stays out of `check` so CI does not pay the R8 cost on
             // every build.
@@ -288,6 +280,8 @@ internal class ProGuardShieldPluginTest {
         val pluginConfig = """
             proguardShield {
                 configuration("release") {
+                    full = true
+                    fullFast = true
                     forbiddenPatterns = ["-dontobfuscate"]
                 }
             }
@@ -337,6 +331,8 @@ internal class ProGuardShieldPluginTest {
             pluginConfig = """
                 proguardShield {
                     configuration("release") {
+                        full = true
+                        fullFast = true
                         forbiddenPatterns = ["-dontobfuscate"]
                     }
                 }
@@ -391,5 +387,61 @@ internal class ProGuardShieldPluginTest {
             assertThat(result.output).contains("android.buildTypes.release.isMinifyEnabled = true")
             assertThat(result.output).doesNotContain("android.buildTypes.devRelease")
         }
+    }
+
+    @Test
+    fun `configuration without flags registers no full or fullFast tasks`() {
+        AndroidProject(pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG).use { project ->
+            val tasks = build(project, ":app:tasks", "--all").output
+            assertThat(tasks).doesNotContain("proguardShieldFullRelease")
+            assertThat(tasks).doesNotContain("proguardShieldFullFastRelease")
+            assertThat(tasks).doesNotContain("proguardShieldVerifyParityRelease")
+            // Without full, nothing is injected into R8's inputs.
+            assertThat(tasks).doesNotContain("generateProguardShieldInjectRelease")
+        }
+    }
+
+    @Test
+    fun `fullFast alone runs in check while full alone does not`() {
+        AndroidProject(
+            pluginConfig = """
+                proguardShield {
+                    configuration("release") {
+                        fullFast = true
+                    }
+                }
+            """.trimIndent(),
+        ).use { project ->
+            val scheduled = scheduledTasks(build(project, ":app:check", "--dry-run", "--console=plain").output)
+            assertThat(scheduled).contains(":app:proguardShieldFullFastRelease")
+        }
+
+        AndroidProject(
+            pluginConfig = """
+                proguardShield {
+                    configuration("release") {
+                        full = true
+                    }
+                }
+            """.trimIndent(),
+        ).use { project ->
+            val scheduled = scheduledTasks(build(project, ":app:check", "--dry-run", "--console=plain").output)
+            assertThat(scheduled).doesNotContain(":app:proguardShieldFullRelease")
+            assertThat(scheduled).doesNotContain(":app:minifyReleaseWithR8")
+            // Parity needs both full and fullFast.
+            assertThat(build(project, ":app:tasks", "--all").output).doesNotContain("proguardShieldVerifyParityRelease")
+        }
+    }
+
+    /**
+     * BuildResult.task() returns null for dry-run skipped tasks, so parse the
+     * printed task names instead. --console=plain pins the output format.
+     */
+    private fun scheduledTasks(output: String): Set<String> {
+        val taskLine = Regex("^:app:(\\S+)")
+        return output.lines()
+            .mapNotNull { taskLine.find(it)?.groupValues?.get(1) }
+            .map { ":app:$it" }
+            .toSet()
     }
 }

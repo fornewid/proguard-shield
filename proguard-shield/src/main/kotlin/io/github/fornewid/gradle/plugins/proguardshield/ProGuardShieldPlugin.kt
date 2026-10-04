@@ -18,6 +18,10 @@ public class ProGuardShieldPlugin : Plugin<Project> {
 
         internal const val PROGUARD_SHIELD_EXTENSION_NAME = "proguardShield"
 
+        internal const val PROGUARD_SHIELD_TASK_NAME = "proguardShield"
+
+        internal const val PROGUARD_SHIELD_BASELINE_TASK_NAME = "proguardShieldBaseline"
+
         internal const val PROGUARD_SHIELD_FULL_TASK_NAME = "proguardShieldFull"
 
         internal const val PROGUARD_SHIELD_FULL_BASELINE_TASK_NAME = "proguardShieldFullBaseline"
@@ -43,6 +47,17 @@ public class ProGuardShieldPlugin : Plugin<Project> {
             target.objects,
         )
 
+        // Optimization (default): rules that block R8's optimization, with
+        // their origins. Wired to the `check` lifecycle.
+        val guardTask = target.tasks.register(PROGUARD_SHIELD_TASK_NAME) {
+            group = PROGUARD_SHIELD_TASK_GROUP
+            description = "Guard against new optimization-blocking ProGuard/R8 rules"
+        }
+        val baselineTask = target.tasks.register(PROGUARD_SHIELD_BASELINE_TASK_NAME) {
+            group = PROGUARD_SHIELD_TASK_GROUP
+            description = "Save the current optimization-blocking rules to the baseline file"
+        }
+
         // Full: the full merged rule set as R8 prints it. Runs R8 with
         // -printconfiguration, public AGP API only. Reserved for explicit
         // invocation; not on the default `check` lifecycle.
@@ -56,8 +71,7 @@ public class ProGuardShieldPlugin : Plugin<Project> {
         }
 
         // FullFast: the same full rule set read from R8's inputs without
-        // running R8. Wired to the `check` lifecycle so every CI build catches
-        // drift cheaply.
+        // running R8. Wired to the `check` lifecycle when enabled.
         val fullFastGuardTask = target.tasks.register(PROGUARD_SHIELD_FULL_FAST_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
             description = "Guard against unintentional ProGuard/R8 rule changes (fullFast, skips R8)"
@@ -68,11 +82,11 @@ public class ProGuardShieldPlugin : Plugin<Project> {
         }
 
         // Parity verification: regenerates both baselines and byte-compares
-        // them. Run this on first install and after every AGP upgrade to
-        // confirm that fullFast is trustworthy on the current setup.
+        // them. A verification aid for maintainers and AI agents (registered
+        // when both full and fullFast are enabled), not part of `check`.
         val verifyParityTask = target.tasks.register(PROGUARD_SHIELD_VERIFY_PARITY_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
-            description = "Verify that the full and fullFast baselines are byte-identical (run on first install / AGP upgrade)"
+            description = "Verify that the full and fullFast baselines are byte-identical (verification aid)"
         }
 
         // Only application modules produce a fully merged ProGuard configuration that
@@ -82,6 +96,8 @@ public class ProGuardShieldPlugin : Plugin<Project> {
             AndroidVariantHandler.configureVariants(
                 project = target,
                 extension = extension,
+                guardTask = guardTask,
+                baselineTask = baselineTask,
                 fullGuardTask = fullGuardTask,
                 fullBaselineTask = fullBaselineTask,
                 fullFastGuardTask = fullFastGuardTask,
@@ -90,16 +106,15 @@ public class ProGuardShieldPlugin : Plugin<Project> {
             )
         }
 
-        // `check` runs only fullFast — full is reserved for explicit
-        // invocation (`./gradlew :app:proguardShieldFull`) and for the
-        // parity-verification flow (`./gradlew :app:proguardShieldVerifyParity`).
-        attachToCheckTask(target, fullFastGuardTask)
+        // `check` runs the optimization and fullFast modes of the variants that
+        // enable them. Full is reserved for explicit invocation (it runs R8).
+        attachToCheckTask(target, guardTask, fullFastGuardTask)
     }
 
-    private fun attachToCheckTask(target: Project, guardTask: TaskProvider<*>) {
+    private fun attachToCheckTask(target: Project, vararg guardTasks: TaskProvider<*>) {
         target.pluginManager.withPlugin("base") {
             target.tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME).configure {
-                this.dependsOn(guardTask)
+                this.dependsOn(*guardTasks)
             }
         }
     }

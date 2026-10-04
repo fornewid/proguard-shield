@@ -38,8 +38,25 @@ public open class ProGuardShieldConfiguration @Inject constructor(
      *
      * Both the full (`proguardShieldFull`) and fullFast (`proguardShieldFullFast`)
      * modes run the same check on the same normalized inputs, so the parity
-     * invariant is preserved.
+     * invariant is preserved. The optimization mode does not use these patterns.
      */
     @get:Input
     public var forbiddenPatterns: List<String> = emptyList()
+
+    /**
+     * Keep a baseline of the full merged rule set by reading R8's inputs
+     * without running R8 (`<variant>FullFastRules.txt`). Runs as part of
+     * `check` when enabled. Relies on AGP internal API. Disabled by default.
+     */
+    @get:Input
+    public var fullFast: Boolean = false
+
+    /**
+     * Keep a baseline of the full merged rule set exactly as R8 prints it, by
+     * running R8 (`<variant>FullRules.txt`). Uses only public AGP API and is
+     * the reference the other modes are checked against. Not part of `check`;
+     * run `proguardShieldFull` explicitly. Disabled by default.
+     */
+    @get:Input
+    public var full: Boolean = false
 }

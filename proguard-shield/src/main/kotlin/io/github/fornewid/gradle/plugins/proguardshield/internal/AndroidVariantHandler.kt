@@ -26,6 +26,8 @@ internal object AndroidVariantHandler {
     fun configureVariants(
         project: Project,
         extension: ProGuardShieldPluginExtension,
+        guardTask: TaskProvider<*>,
+        baselineTask: TaskProvider<*>,
         fullGuardTask: TaskProvider<*>,
         fullBaselineTask: TaskProvider<*>,
         fullFastGuardTask: TaskProvider<*>,
@@ -50,6 +52,8 @@ internal object AndroidVariantHandler {
                         baselineDir = extension.baselineDir.get(),
                         config = this,
                         variant = variant,
+                        guardTask = guardTask,
+                        baselineTask = baselineTask,
                         fullGuardTask = fullGuardTask,
                         fullBaselineTask = fullBaselineTask,
                         fullFastGuardTask = fullFastGuardTask,
@@ -61,13 +65,14 @@ internal object AndroidVariantHandler {
         }
 
         // Validate at task configuration time (not doFirst) — CC-safe.
-        // `fullGuardTask.configure {}` runs at configuration time and captures only plain
+        // `configure {}` runs at configuration time and captures only plain
         // String sets; the lambda itself is not serialized into the CC state.
-        fullGuardTask.configure {
-            validateConfigurations(declaredConfigNames, matchedConfigs, allVariantNames)
-        }
-        fullBaselineTask.configure {
-            validateConfigurations(declaredConfigNames, matchedConfigs, allVariantNames)
+        // Every aggregate validates, so whichever mode the user runs reports it.
+        listOf(
+            guardTask, baselineTask, fullGuardTask, fullBaselineTask,
+            fullFastGuardTask, fullFastBaselineTask, verifyParityTask,
+        ).forEach { aggregate ->
+            aggregate.configure { validateConfigurations(declaredConfigNames, matchedConfigs, allVariantNames) }
         }
     }
 
@@ -104,6 +109,8 @@ internal object AndroidVariantHandler {
         baselineDir: String,
         config: ProGuardShieldConfiguration,
         variant: ApplicationVariant,
+        guardTask: TaskProvider<*>,
+        baselineTask: TaskProvider<*>,
         fullGuardTask: TaskProvider<*>,
         fullBaselineTask: TaskProvider<*>,
         fullFastGuardTask: TaskProvider<*>,
@@ -123,57 +130,64 @@ internal object AndroidVariantHandler {
         val baselineDirectory = OutputFileUtils.proguardShieldDir(project, baselineDir)
         val fullFilePrefix = "${config.configurationName}FullRules"
         val fullFastFilePrefix = "${config.configurationName}FullFastRules"
-        val variantOutputDir = project.layout.buildDirectory.dir("proguardShield/${variant.name}")
-        val mergedRulesFile = variantOutputDir.map { it.file("merged-rules.txt") }
-        val injectProFile = variantOutputDir.map { it.file("inject.pro") }
-
-        val injectTask = project.tasks.register(
-            "generateProguardShieldInject$capitalizedName",
-            GenerateInjectedRulesTask::class.java,
-        ) {
-            mergedRulesPath.set(mergedRulesFile.map { it.asFile.absolutePath })
-            outputProFile.set(injectProFile)
-        }
-
-        // Include the generated `.pro` in R8's input list.
-        variant.proguardFiles.add(injectTask.flatMap { it.outputProFile })
-
         val minifyTaskName = "minify${capitalizedName}WithR8"
+        val injectTaskName = "generateProguardShieldInject$capitalizedName"
 
-        // ---- Full: runs R8 (public AGP API only) ----
-        val fullConfigGuardTask = project.tasks.register(
-            "proguardShieldFull$capitalizedName",
-            ProGuardShieldListTask::class.java,
-        ) {
-            dependsOn(minifyTaskName)
-            this.mergedRulesFile.set(mergedRulesFile)
-            configurationName.set(config.configurationName)
-            projectPath.set(project.path)
-            shouldBaseline.set(false)
-            pluginVersion.set(ProGuardShieldPlugin.VERSION)
-            this.baselineDir.set(baselineDirectory)
-            this.filePrefix.set(fullFilePrefix)
-            forbiddenPatterns.set(config.forbiddenPatterns)
+        // ---- Full: runs R8 with -printconfiguration (public AGP API only) ----
+        if (config.full) {
+            val variantOutputDir = project.layout.buildDirectory.dir("proguardShield/${variant.name}")
+            val mergedRulesFile = variantOutputDir.map { it.file("merged-rules.txt") }
+            val injectProFile = variantOutputDir.map { it.file("inject.pro") }
+
+            val injectTask = project.tasks.register(injectTaskName, GenerateInjectedRulesTask::class.java) {
+                mergedRulesPath.set(mergedRulesFile.map { it.asFile.absolutePath })
+                outputProFile.set(injectProFile)
+            }
+
+            // Include the generated `.pro` in R8's input list. Only variants that
+            // enable full get it, so the other modes leave R8's inputs (and its
+            // build cache key) untouched.
+            variant.proguardFiles.add(injectTask.flatMap { it.outputProFile })
+
+            val fullConfigGuardTask = project.tasks.register(
+                "proguardShieldFull$capitalizedName",
+                ProGuardShieldListTask::class.java,
+            ) {
+                dependsOn(minifyTaskName)
+                this.mergedRulesFile.set(mergedRulesFile)
+                configurationName.set(config.configurationName)
+                projectPath.set(project.path)
+                shouldBaseline.set(false)
+                pluginVersion.set(ProGuardShieldPlugin.VERSION)
+                this.baselineDir.set(baselineDirectory)
+                this.filePrefix.set(fullFilePrefix)
+                forbiddenPatterns.set(config.forbiddenPatterns)
+            }
+            fullGuardTask.configure { dependsOn(fullConfigGuardTask) }
+
+            val fullConfigBaselineTask = project.tasks.register(
+                "proguardShieldFullBaseline$capitalizedName",
+                ProGuardShieldListTask::class.java,
+            ) {
+                dependsOn(minifyTaskName)
+                this.mergedRulesFile.set(mergedRulesFile)
+                configurationName.set(config.configurationName)
+                projectPath.set(project.path)
+                shouldBaseline.set(true)
+                pluginVersion.set(ProGuardShieldPlugin.VERSION)
+                this.baselineDir.set(baselineDirectory)
+                this.filePrefix.set(fullFilePrefix)
+                forbiddenPatterns.set(config.forbiddenPatterns)
+            }
+            fullBaselineTask.configure { dependsOn(fullConfigBaselineTask) }
+
+            // Guard and baseline tasks share `baselineDir` as an output. When both
+            // run in one build, the guard must compare against the committed
+            // baseline before it is regenerated.
+            fullConfigBaselineTask.configure { mustRunAfter(fullConfigGuardTask) }
         }
-        fullGuardTask.configure { dependsOn(fullConfigGuardTask) }
 
-        val fullConfigBaselineTask = project.tasks.register(
-            "proguardShieldFullBaseline$capitalizedName",
-            ProGuardShieldListTask::class.java,
-        ) {
-            dependsOn(minifyTaskName)
-            this.mergedRulesFile.set(mergedRulesFile)
-            configurationName.set(config.configurationName)
-            projectPath.set(project.path)
-            shouldBaseline.set(true)
-            pluginVersion.set(ProGuardShieldPlugin.VERSION)
-            this.baselineDir.set(baselineDirectory)
-            this.filePrefix.set(fullFilePrefix)
-            forbiddenPatterns.set(config.forbiddenPatterns)
-        }
-        fullBaselineTask.configure { dependsOn(fullConfigBaselineTask) }
-
-        // ---- FullFast: reads R8 inputs directly, without running R8 ----
+        // ---- R8's rule inputs, read without running R8 (fullFast, optimization) ----
         val ruleInputs = project.provider {
             val minifyTask = project.tasks.named(minifyTaskName).get()
             IgnoredLibraryKeepRules.exclude(
@@ -196,66 +210,63 @@ internal object AndroidVariantHandler {
 
         val rootDir = project.rootDir.absolutePath
 
-        val fullFastConfigGuardTask = project.tasks.register(
-            "proguardShieldFullFast$capitalizedName",
-            ProGuardShieldFastListTask::class.java,
-        ) {
-            this.ruleInputs.from(ruleInputs)
-            fastExtraDepNames.forEach { dependsOn(it) }
-            dependsOn(injectTask)
-            configurationName.set(config.configurationName)
-            projectPath.set(project.path)
-            shouldBaseline.set(false)
-            pluginVersion.set(ProGuardShieldPlugin.VERSION)
-            this.baselineDir.set(baselineDirectory)
-            this.filePrefix.set(fullFastFilePrefix)
-            this.rootDirPath.set(rootDir)
-            forbiddenPatterns.set(config.forbiddenPatterns)
+        // ---- FullFast: the full rule set from R8's inputs, without running R8 ----
+        if (config.fullFast) {
+            val fullFastConfigGuardTask = project.tasks.register(
+                "proguardShieldFullFast$capitalizedName",
+                ProGuardShieldFastListTask::class.java,
+            ) {
+                this.ruleInputs.from(ruleInputs)
+                fastExtraDepNames.forEach { dependsOn(it) }
+                // With full enabled, the injected `.pro` is one of R8's inputs.
+                if (config.full) dependsOn(injectTaskName)
+                configurationName.set(config.configurationName)
+                projectPath.set(project.path)
+                shouldBaseline.set(false)
+                pluginVersion.set(ProGuardShieldPlugin.VERSION)
+                this.baselineDir.set(baselineDirectory)
+                this.filePrefix.set(fullFastFilePrefix)
+                this.rootDirPath.set(rootDir)
+                forbiddenPatterns.set(config.forbiddenPatterns)
+            }
+            fullFastGuardTask.configure { dependsOn(fullFastConfigGuardTask) }
+
+            val fullFastConfigBaselineTask = project.tasks.register(
+                "proguardShieldFullFastBaseline$capitalizedName",
+                ProGuardShieldFastListTask::class.java,
+            ) {
+                this.ruleInputs.from(ruleInputs)
+                fastExtraDepNames.forEach { dependsOn(it) }
+                if (config.full) dependsOn(injectTaskName)
+                configurationName.set(config.configurationName)
+                projectPath.set(project.path)
+                shouldBaseline.set(true)
+                pluginVersion.set(ProGuardShieldPlugin.VERSION)
+                this.baselineDir.set(baselineDirectory)
+                this.filePrefix.set(fullFastFilePrefix)
+                this.rootDirPath.set(rootDir)
+                forbiddenPatterns.set(config.forbiddenPatterns)
+            }
+            fullFastBaselineTask.configure { dependsOn(fullFastConfigBaselineTask) }
+            fullFastConfigBaselineTask.configure { mustRunAfter(fullFastConfigGuardTask) }
         }
-        fullFastGuardTask.configure { dependsOn(fullFastConfigGuardTask) }
 
-        val fullFastConfigBaselineTask = project.tasks.register(
-            "proguardShieldFullFastBaseline$capitalizedName",
-            ProGuardShieldFastListTask::class.java,
-        ) {
-            this.ruleInputs.from(ruleInputs)
-            fastExtraDepNames.forEach { dependsOn(it) }
-            dependsOn(injectTask)
-            configurationName.set(config.configurationName)
-            projectPath.set(project.path)
-            shouldBaseline.set(true)
-            pluginVersion.set(ProGuardShieldPlugin.VERSION)
-            this.baselineDir.set(baselineDirectory)
-            this.filePrefix.set(fullFastFilePrefix)
-            this.rootDirPath.set(rootDir)
-            forbiddenPatterns.set(config.forbiddenPatterns)
+        // ---- Parity: verification aid that fullFast matches full ----
+        if (config.full && config.fullFast) {
+            val perConfigVerifyParityTask = project.tasks.register(
+                "proguardShieldVerifyParity$capitalizedName",
+                ProGuardShieldVerifyParityTask::class.java,
+            ) {
+                // Force a fresh capture of both baselines first so the comparison
+                // reflects the current build, not whatever was committed earlier.
+                dependsOn("proguardShieldFullBaseline$capitalizedName")
+                dependsOn("proguardShieldFullFastBaseline$capitalizedName")
+                accurateBaseline.set(baselineDirectory.file("$fullFilePrefix.txt"))
+                fastBaseline.set(baselineDirectory.file("$fullFastFilePrefix.txt"))
+                configurationName.set(config.configurationName)
+                projectPath.set(project.path)
+            }
+            verifyParityTask.configure { dependsOn(perConfigVerifyParityTask) }
         }
-        fullFastBaselineTask.configure { dependsOn(fullFastConfigBaselineTask) }
-
-        // Guard and baseline tasks share `baselineDir` as an output. When both
-        // run in one build, the guard must compare against the committed
-        // baseline before it is regenerated. This also orders the parity task
-        // (which reads the baselines) after the guards.
-        fullConfigBaselineTask.configure { mustRunAfter(fullConfigGuardTask) }
-        fullFastConfigBaselineTask.configure { mustRunAfter(fullFastConfigGuardTask) }
-
-        // ---- Parity verification (regenerate both baselines, then byte-compare) ----
-        val fullBaselinePath = baselineDirectory.file("$fullFilePrefix.txt")
-        val fullFastBaselinePath = baselineDirectory.file("$fullFastFilePrefix.txt")
-
-        val perConfigVerifyParityTask = project.tasks.register(
-            "proguardShieldVerifyParity$capitalizedName",
-            ProGuardShieldVerifyParityTask::class.java,
-        ) {
-            // Force a fresh capture of both baselines first so the comparison
-            // reflects the current build, not whatever was committed earlier.
-            dependsOn(fullConfigBaselineTask)
-            dependsOn(fullFastConfigBaselineTask)
-            accurateBaseline.set(fullBaselinePath)
-            fastBaseline.set(fullFastBaselinePath)
-            configurationName.set(config.configurationName)
-            projectPath.set(project.path)
-        }
-        verifyParityTask.configure { dependsOn(perConfigVerifyParityTask) }
     }
 }

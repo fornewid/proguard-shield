@@ -209,7 +209,18 @@ internal class AndroidProject(
             -keepattributes SourceFile,LineNumberTable
         """.trimIndent()
 
+        /** Enables the full-rule modes so the parity-era tests keep their meaning. */
         val DEFAULT_PLUGIN_CONFIG = """
+            proguardShield {
+                configuration("release") {
+                    full = true
+                    fullFast = true
+                }
+            }
+        """.trimIndent()
+
+        /** The configuration a user writes without any mode flags. */
+        val MINIMAL_PLUGIN_CONFIG = """
             proguardShield {
                 configuration("release")
             }
