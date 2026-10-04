@@ -38,7 +38,8 @@ internal object AndroidVariantHandler {
         val matchedConfigs = mutableSetOf<String>()
 
         androidComponents.onVariants { variant ->
-            allVariantNames.add(variant.name)
+            // Only minify-enabled variants are valid; suggesting others leads to the next error.
+            if (variant.isMinifyEnabled) allVariantNames.add(variant.name)
             extension.configurations.configureEach {
                 declaredConfigNames.add(configurationName)
                 if (configurationName == variant.name) {
@@ -111,7 +112,8 @@ internal object AndroidVariantHandler {
         if (!variant.isMinifyEnabled) {
             throw GradleException(
                 "ProGuard Shield: variant \"${variant.name}\" does not have minification enabled. " +
-                    "Either enable it via android.buildTypes.${variant.name}.isMinifyEnabled = true, " +
+                    "Either enable it via android.buildTypes.${variant.buildType}.isMinifyEnabled = true " +
+                    "(Groovy: minifyEnabled true), " +
                     "or remove configuration(\"${variant.name}\") from the proguardShield DSL.",
             )
         }

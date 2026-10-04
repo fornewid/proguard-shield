@@ -236,7 +236,9 @@ internal class ProGuardShieldPluginTest {
             val result = buildAndFail(project, ":app:proguardShield")
             assertThat(result.output).contains("could not resolve configuration")
             assertThat(result.output).contains("nonexistent")
-            assertThat(result.output).contains("release")
+            assertThat(result.output).contains("configuration(\"release\")")
+            // `debug` has no minification, so suggesting it would only lead to the next error.
+            assertThat(result.output).doesNotContain("configuration(\"debug\")")
         }
     }
 
@@ -325,6 +327,28 @@ internal class ProGuardShieldPluginTest {
             val result = buildAndFail(project, ":app:proguardShield")
             assertThat(result.output).contains("does not have minification enabled")
             assertThat(result.output).contains("isMinifyEnabled")
+        }
+    }
+
+    @Test
+    fun `minify hint names the build type rather than the flavored variant`() {
+        AndroidProject(
+            minifyEnabled = false,
+            pluginConfig = """
+                android {
+                    flavorDimensions "env"
+                    productFlavors {
+                        dev { dimension "env" }
+                    }
+                }
+                proguardShield {
+                    configuration("devRelease")
+                }
+            """.trimIndent(),
+        ).use { project ->
+            val result = buildAndFail(project, ":app:proguardShield")
+            assertThat(result.output).contains("android.buildTypes.release.isMinifyEnabled = true")
+            assertThat(result.output).doesNotContain("android.buildTypes.devRelease")
         }
     }
 }
