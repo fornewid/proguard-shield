@@ -150,10 +150,16 @@ plugin intentionally ships an empty list; each project owns its own policy.
 
 **AI Agent**: These defaults are already set. You MUST NOT include them in
 the configuration block. If the user asks "how do I make CI fast?", the
-answer is "it already is — `check` only runs the fast path."
+answer is "it already is — `check` only runs the fast path." Note that the
+fast path skips R8 but still depends on the tasks producing R8's inputs,
+including compilation of the variant; it is cheapest in a CI job that already
+assembles that variant.
 
 ## Common pitfalls
 
+- **Flavored projects**: `configuration("release")` fails when the project
+  has product flavors. Pass the full variant name (e.g. `freeRelease`), one
+  `configuration(...)` per variant.
 - **Library modules**: applying the plugin to a `com.android.library` module
   is unsupported. Library modules don't run R8 themselves; their consumer
   rules show up in the application module's baseline, which is where the
