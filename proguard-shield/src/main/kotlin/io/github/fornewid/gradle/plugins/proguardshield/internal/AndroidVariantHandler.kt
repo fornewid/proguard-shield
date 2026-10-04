@@ -226,20 +226,16 @@ internal object AndroidVariantHandler {
             val treeFile = baselineDirectory.file("${config.configurationName}OptimizationBlockingRules.tree.txt")
             val projectDirPath = project.projectDir.absolutePath
 
-            // External library artifacts (AAR/JAR): their classes tell each library's own packages apart.
             val libraryArtifacts = variant.runtimeConfiguration.incoming
                 .artifactView { componentFilter { it is ModuleComponentIdentifier } }
                 .artifacts
-            val libraryArtifactLabels = libraryArtifacts.resolvedArtifacts.map { artifacts ->
-                artifacts.associate { it.file.absolutePath to RuleOrigins.of(it.id.componentIdentifier).label }
-            }
 
             fun ProGuardShieldOptimizationTask.configureOptimization(baseline: Boolean) {
                 this.ruleInputs.from(ruleInputs)
                 fastExtraDepNames.forEach { dependsOn(it) }
                 this.libraryOrigins.set(libraryOrigins)
                 this.libraryArtifacts.from(libraryArtifacts.artifactFiles)
-                this.libraryArtifactLabels.set(libraryArtifactLabels)
+                this.libraryArtifactOrigins.set(RuleOrigins.byPath(libraryArtifacts))
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)
                 this.projectDirPath.set(projectDirPath)

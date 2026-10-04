@@ -31,6 +31,8 @@ internal class LibraryPackages(byLibrary: Map<String, Set<String>>) {
         if (pkg.isEmpty()) return false
         val own = ownPackages(label)
         if (own.any { pkg == it || pkg.startsWith("$it.") }) return true
+        // A single-package pattern reaches only its own package, which the check above covers.
+        if (!pattern.isRecursive) return false
         val reached = all.filter(pattern::reaches)
         return reached.isNotEmpty() && reached.all { it in own }
     }
@@ -63,7 +65,7 @@ internal class LibraryPackages(byLibrary: Map<String, Set<String>>) {
         /** `com/foo/Bar.class` → `com.foo`; null for other entries, `module-info` and the default package. */
         private fun packageOf(entry: String): String? {
             if (!entry.endsWith(".class")) return null
-            val name = entry.replace(VERSIONED, "")
+            val name = if (entry.startsWith("META-INF/")) entry.replace(VERSIONED, "") else entry
             if (name.endsWith("module-info.class") || '/' !in name) return null
             return name.substringBeforeLast('/').replace('/', '.')
         }

@@ -4,10 +4,13 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
 internal class ClassNamePattern(val text: String) {
 
     /** [text] up to its first wildcard (`*`, `?`, `<n>`). */
-    val literal: String = text.substring(0, text.indexOfFirst { it in WILDCARDS }.takeIf { it >= 0 } ?: text.length)
+    private val literal: String = text.substring(0, text.indexOfFirst { it in WILDCARDS }.takeIf { it >= 0 } ?: text.length)
+
+    /** [text] from its first wildcard on; empty for a named class. */
+    private val wildcard: String = text.substring(literal.length)
 
     /** No wildcard: a single named class. */
-    val isExact: Boolean = literal == text
+    val isExact: Boolean = wildcard.isEmpty()
 
     /** Refers back to a class matched by an `-if` condition (`<1>`). */
     val hasBackReference: Boolean = '<' in text
@@ -15,22 +18,19 @@ internal class ClassNamePattern(val text: String) {
     /** The package part of [literal]: `com.foo` for `com.foo.**` and `com.foo.Bar`, empty for `*` or `**.R$*`. */
     val packageLiteral: String = literal.substringBeforeLast('.', missingDelimiterValue = "")
 
+    /** The wildcard reaches into subpackages (`com.foo.**`, `com.applovin.sdk**`). */
+    val isRecursive: Boolean = "**" in wildcard
+
     /**
      * The wildcard covers whole packages (`com.foo.**`, `com.foo.*`, `com.applovin.sdk**`, `**`) rather
      * than class names (`**Parcelizer`, `DeviceInfo**`, `**.R$*`). Package names start lower case.
      */
-    val isPackageWide: Boolean = !isExact && run {
-        val tail = text.substring(if (packageLiteral.isEmpty()) 0 else packageLiteral.length + 1)
-        val head = tail.substring(0, tail.indexOfFirst { it in WILDCARDS })
-        val rest = tail.substring(head.length)
-        rest.none { it.isLetterOrDigit() || it == '_' } && (head.isEmpty() || head.first().isLowerCase())
-    }
+    val isPackageWide: Boolean = !isExact && wildcard.none { it.isLetterOrDigit() || it == '_' } &&
+        literal.substringAfterLast('.').let { it.isEmpty() || it.first().isLowerCase() }
 
     /** Whether this pattern can match a class in [pkg]. */
-    fun reaches(pkg: String): Boolean = when {
-        isExact || "**" !in text.substring(literal.length) -> pkg == packageLiteral
-        else -> pkg == literal.removeSuffix(".") || pkg.startsWith(literal)
-    }
+    fun reaches(pkg: String): Boolean =
+        if (isRecursive) pkg == literal.removeSuffix(".") || pkg.startsWith(literal) else pkg == packageLiteral
 
     private companion object {
         const val WILDCARDS = "*?<"
@@ -50,8 +50,8 @@ internal data class ClassSpecification(
     val names: List<ClassNamePattern>,
     /** The `extends` or `implements` type. */
     val inheritance: ClassNamePattern?,
-    /** Member entries, or null without a `{ }` block. */
-    val members: List<String>?,
+    /** Member entries; empty without a `{ }` block. */
+    val members: List<String>,
 ) {
     companion object {
         val KEEP_DIRECTIVES = setOf(
@@ -90,11 +90,8 @@ internal data class ClassSpecification(
                 } else {
                     afterKeyword.drop(relation + 1).firstOrNull { !it.startsWith("@") }?.let(::ClassNamePattern)
                 },
-                members = if ('{' in text) {
-                    text.substringAfter('{').substringBeforeLast('}').split(';').map { it.trim() }.filter { it.isNotEmpty() }
-                } else {
-                    null
-                },
+                members = text.substringAfter('{', "").substringBeforeLast('}')
+                    .split(';').map { it.trim() }.filter { it.isNotEmpty() },
             )
         }
     }

@@ -90,8 +90,8 @@ class OptimizationBlockingRuleReportTest {
         assertThat(OptimizationBlockingRuleReport.diffList(OptimizationBlockingRuleReport.renderList(rules), rules).isEmpty).isTrue()
         assertThat(OptimizationBlockingRuleReport.diffTree(baseline, rules)).isEqualTo(
             RuleChanges(
-                added = listOf(LabeledRule("com.other:lib", "-dontobfuscate")),
-                removed = listOf(LabeledRule("com.example:sdk", "-dontobfuscate")),
+                added = listOf(BlockingRule("-dontobfuscate", other)),
+                removed = listOf(BlockingRule("-dontobfuscate", sdk)),
             ),
         )
     }
@@ -103,16 +103,13 @@ class OptimizationBlockingRuleReportTest {
         assertThat(OptimizationBlockingRuleReport.diffTree(baseline, rules).isEmpty).isTrue()
     }
 
+    private fun message(list: RuleChanges<String>, tree: RuleChanges<BlockingRule>) =
+        OptimizationBlockingRuleReport.failureMessage(":app", "release", list, tree, "re-baseline hint")
+
     @Test
     fun `failureMessage shows only the rule diff without a tree diff`() {
-        val message = OptimizationBlockingRuleReport.failureMessage(
-            projectPath = ":app",
-            configurationName = "release",
-            list = RuleChanges(added = listOf(keepAll), removed = listOf("-keepattributes *")),
-            tree = RuleChanges.none(),
-            rebaselineMessage = "re-baseline hint",
-        )
-        assertThat(message).isEqualTo(
+        val list = RuleChanges(added = listOf(keepAll), removed = listOf("-keepattributes *"))
+        assertThat(message(list, RuleChanges.none())).isEqualTo(
             """
             ProGuard Shield: optimization-blocking rules changed in :app (release).
             + -keep class ** {
@@ -127,21 +124,15 @@ class OptimizationBlockingRuleReportTest {
 
     @Test
     fun `failureMessage with a tree diff groups the changed rules under each origin`() {
-        val message = OptimizationBlockingRuleReport.failureMessage(
-            projectPath = ":app",
-            configurationName = "release",
-            list = RuleChanges(added = listOf("-dontobfuscate", "-ignorewarnings"), removed = listOf("-keepattributes *")),
-            tree = RuleChanges(
-                added = listOf(
-                    LabeledRule("com.example:sdk", "-dontobfuscate"),
-                    LabeledRule("com.example:sdk", "-ignorewarnings"),
-                    LabeledRule("com.other:lib", "-dontobfuscate"),
-                ),
-                removed = listOf(LabeledRule(":app", "-keepattributes *")),
+        val tree = RuleChanges(
+            added = listOf(
+                BlockingRule("-dontobfuscate", sdk),
+                BlockingRule("-ignorewarnings", sdk),
+                BlockingRule(keepAll, other),
             ),
-            rebaselineMessage = "re-baseline hint",
+            removed = listOf(BlockingRule("-keepattributes *", app)),
         )
-        assertThat(message).isEqualTo(
+        assertThat(message(RuleChanges.none(), tree)).isEqualTo(
             """
             ProGuard Shield: optimization-blocking rules changed in :app (release).
               [:app]
@@ -149,26 +140,6 @@ class OptimizationBlockingRuleReportTest {
               [com.example:sdk]
             + -dontobfuscate
             + -ignorewarnings
-              [com.other:lib]
-            + -dontobfuscate
-
-            re-baseline hint
-            """.trimIndent(),
-        )
-    }
-
-    @Test
-    fun `failureMessage shows a rule another origin also adds under that origin only`() {
-        val message = OptimizationBlockingRuleReport.failureMessage(
-            projectPath = ":app",
-            configurationName = "release",
-            list = RuleChanges.none(),
-            tree = RuleChanges(added = listOf(LabeledRule("com.other:lib", keepAll)), removed = emptyList()),
-            rebaselineMessage = "re-baseline hint",
-        )
-        assertThat(message).isEqualTo(
-            """
-            ProGuard Shield: optimization-blocking rules changed in :app (release).
               [com.other:lib]
             + -keep class ** {
             + *;

@@ -2,12 +2,9 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
 
 import io.github.fornewid.gradle.plugins.proguardshield.internal.rules.RuleNormalizer
 
-/** One optimization-blocking rule (its lines joined with `\n`) found in a rule file. */
-internal data class BlockingRule(val unit: String, val origin: RuleOrigin)
-
-/** A rule under its origin label, as the tree baseline records it. */
-internal data class LabeledRule(val label: String, val unit: String) : Comparable<LabeledRule> {
-    override fun compareTo(other: LabeledRule): Int = compareValuesBy(this, other, { it.label }, { it.unit })
+/** One optimization-blocking rule (its lines joined with `\n`) and the origin of its rule file. */
+internal data class BlockingRule(val unit: String, val origin: RuleOrigin) : Comparable<BlockingRule> {
+    override fun compareTo(other: BlockingRule): Int = compareValuesBy(this, other, { it.origin.label }, { it.unit })
 }
 
 /** Entries only in the current rules ([added]) or only in the baseline ([removed]). */
@@ -26,6 +23,9 @@ internal data class RuleChanges<T>(val added: List<T>, val removed: List<T>) {
  */
 internal object OptimizationBlockingRuleReport {
 
+    /** Local modules first, then libraries, then the AGP default file, then unresolved files. */
+    private val ORIGIN_ORDER: Comparator<String> = compareBy({ groupRank(it) }, { it })
+
     fun renderList(rules: List<BlockingRule>): String {
         val units = rules.map { it.unit }.distinct().sorted()
         return if (units.isEmpty()) "" else units.joinToString("\n", postfix = "\n")
@@ -33,7 +33,7 @@ internal object OptimizationBlockingRuleReport {
 
     fun renderTree(rules: List<BlockingRule>): String = buildString {
         val byOrigin = rules.groupBy { it.origin.label }
-        byOrigin.keys.sortedWith(compareBy({ groupRank(it) }, { it })).forEachIndexed { index, label ->
+        byOrigin.keys.sortedWith(ORIGIN_ORDER).forEachIndexed { index, label ->
             if (index > 0) appendLine()
             appendLine("[$label]")
             byOrigin.getValue(label).map { it.unit }.distinct().sorted().forEach { appendLine(it) }
@@ -45,8 +45,8 @@ internal object OptimizationBlockingRuleReport {
         return changes(expected, rules.map { it.unit }.toSet())
     }
 
-    fun diffTree(baseline: String, rules: List<BlockingRule>): RuleChanges<LabeledRule> =
-        changes(parseTree(baseline), rules.map { LabeledRule(it.origin.label, it.unit) }.toSet())
+    fun diffTree(baseline: String, rules: List<BlockingRule>): RuleChanges<BlockingRule> =
+        changes(parseTree(baseline), rules.toSet())
 
     /**
      * The changes as a diff: the rules, or — when the tree changed — the rules under each origin label,
@@ -56,7 +56,7 @@ internal object OptimizationBlockingRuleReport {
         projectPath: String,
         configurationName: String,
         list: RuleChanges<String>,
-        tree: RuleChanges<LabeledRule>,
+        tree: RuleChanges<BlockingRule>,
         rebaselineMessage: String,
     ): String = buildString {
         appendLine("ProGuard Shield: optimization-blocking rules changed in $projectPath ($configurationName).")
@@ -65,8 +65,8 @@ internal object OptimizationBlockingRuleReport {
             list.removed.forEach { appendUnit("- ", it) }
         } else {
             (tree.removed.map { "- " to it } + tree.added.map { "+ " to it })
-                .groupBy { it.second.label }
-                .toSortedMap(compareBy({ groupRank(it) }, { it }))
+                .groupBy { it.second.origin.label }
+                .toSortedMap(ORIGIN_ORDER)
                 .forEach { (label, changes) ->
                     appendLine("  [$label]")
                     changes.sortedWith(compareBy({ it.second.unit }, { it.first == "+ " }))
@@ -84,7 +84,6 @@ internal object OptimizationBlockingRuleReport {
     private fun <T : Comparable<T>> changes(expected: Set<T>, actual: Set<T>) =
         RuleChanges(added = (actual - expected).sorted(), removed = (expected - actual).sorted())
 
-    /** Local modules first, then libraries, then the AGP default file, then unresolved files. */
     private fun groupRank(label: String): Int = when {
         label.startsWith(":") -> 0
         label == RuleOrigins.AGP -> 2
@@ -92,8 +91,8 @@ internal object OptimizationBlockingRuleReport {
         else -> 1
     }
 
-    private fun parseTree(text: String): Set<LabeledRule> {
-        val entries = mutableSetOf<LabeledRule>()
+    private fun parseTree(text: String): Set<BlockingRule> {
+        val entries = mutableSetOf<BlockingRule>()
         var label: String? = null
         val section = StringBuilder()
         fun flush() {
@@ -101,7 +100,7 @@ internal object OptimizationBlockingRuleReport {
             val content = section.toString()
             section.setLength(0)
             if (current == null) return
-            RuleNormalizer.normalizeUnits(content).forEach { entries += LabeledRule(current, it.joinToString("\n")) }
+            RuleNormalizer.normalizeUnits(content).forEach { entries += BlockingRule(it.joinToString("\n"), RuleOrigin(current)) }
         }
         for (line in text.lines()) {
             val trimmed = line.trim()

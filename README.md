@@ -129,8 +129,8 @@ A library's rule is not listed when it:
 - targets its own packages or another module of its Maven group
 - keeps app classes through its own types or an annotation:
   `-keep class * extends androidx.room.RoomDatabase { void <init>(); }`
-- keeps a single named class without members, or only some members:
-  `-keep class kotlin.Metadata`, `{ volatile <fields>; }`
+- keeps a single named class without members, or lists only some members:
+  `-keep class kotlin.Metadata`, `{ <init>(); }`, `{ volatile <fields>; }`
 - has both `allowshrinking` and `allowobfuscation`
 
 With `tree = true`, `<variant>OptimizationBlockingRules.tree.txt` groups the
@@ -202,7 +202,7 @@ proguardShield {
 | Option | Default | Description |
 |---|---|---|
 | `baselineDir` | `"proguardShield"` | Directory (relative to the module) where baseline files are written. |
-| `optimization` | `true` | Track optimization-blocking rules and their origins. On `check`. |
+| `optimization` | `true` | Track optimization-blocking rules (with their origins when `tree = true`). On `check`. |
 | `tree` | `false` | Also write the by-origin tree for the optimization mode. |
 | `fullFast` | `false` | Keep a full rule baseline read from R8's inputs without running R8. On `check`. |
 | `full` | `false` | Keep a full rule baseline as R8 prints it (runs R8, public AGP API only). Not on `check`. |

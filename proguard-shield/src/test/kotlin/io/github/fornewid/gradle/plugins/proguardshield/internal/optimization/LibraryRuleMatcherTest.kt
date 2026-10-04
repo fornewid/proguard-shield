@@ -45,6 +45,7 @@ class LibraryRuleMatcherTest {
             "-keep class com.google.gson.** {\n*;\n}",
             "-keep class com.bar.Api, com.google.gson.** { *; }",
         )
+        assertListed("-keep class com.google.gson.** { *; }", label = "com.ghost:lib")
     }
 
     @Test
@@ -93,8 +94,6 @@ class LibraryRuleMatcherTest {
             label = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
         )
         assertNotListed("-keep class com.bar.** { *; }", label = "com.bar:ghost")
-        assertWithMessage("library without artifacts").that(listed("-keep class com.google.gson.** { *; }", "com.ghost:lib"))
-            .isTrue()
     }
 
     @Test
@@ -129,6 +128,7 @@ class LibraryRuleMatcherTest {
         assertNotListed(
             "-keep class kotlin.Metadata",
             "-keep class com.google.gson.Gson { void toJson(); }",
+            "-keep class com.google.gson.** { void foo(); }",
             "-keepclassmembers class * implements android.os.Parcelable { public static final *** CREATOR; }",
             "-keepclasseswithmembers class * { native <methods>; }",
         )

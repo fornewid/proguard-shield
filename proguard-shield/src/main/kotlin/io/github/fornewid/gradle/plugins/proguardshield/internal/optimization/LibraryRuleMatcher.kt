@@ -3,9 +3,10 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
 /**
  * Decides whether an external library's rule unit reaches code outside the library: a whole package or all
  * fields or methods of a class it does not ship, app classes through a type it does not own, an `-assume*`
- * rule on code it does not ship, or an option for the whole app. Rules on its own packages (or another
- * module of its Maven group), scoped by its own types or an annotation, keeping a named class without
- * members or only some members, or with both `allowshrinking` and `allowobfuscation` are not listed.
+ * rule on code it does not ship, or an option for the whole app. Not listed: rules on its own packages (or
+ * another module of its Maven group), rules scoped by its own types or an annotation, rules that keep a
+ * named class without members or list only some members (no `*`, `<fields>` or `<methods>`), and rules with
+ * both `allowshrinking` and `allowobfuscation`.
  */
 internal object LibraryRuleMatcher {
 
@@ -38,44 +39,28 @@ internal object LibraryRuleMatcher {
         if (spec.inheritance != null) return foreignInheritance && foreign.isNotEmpty() && keepsBroadly(spec)
         return foreign.any { name ->
             when {
-                name.isExact -> keepsAllMembers(spec)
+                name.isExact -> spec.members.isNotEmpty() && keepsBroadly(spec)
                 name.isPackageWide && name.packageLiteral.isNotEmpty() -> keepsBroadly(spec)
                 else -> false
             }
         }
     }
 
-    /** Keeps the matched classes without naming members, or all fields or methods of them. */
-    private fun keepsBroadly(spec: ClassSpecification): Boolean {
-        val members = spec.members.orEmpty()
-        return when (spec.directive) {
-            "keep", "keepnames" -> members.isEmpty() || members.any(::isAllMembers)
-            "keepclassmembers", "keepclassmembernames" -> members.any(::isAllMembers)
-            else -> members.all(::isAllMembers)
-        }
-    }
-
-    /** Keeps all fields or all methods of a single named class. */
-    private fun keepsAllMembers(spec: ClassSpecification): Boolean {
-        val members = spec.members.orEmpty()
-        return when (spec.directive) {
-            "keepclasseswithmembers", "keepclasseswithmembernames" -> members.isNotEmpty() && members.all(::isAllMembers)
-            else -> members.any(::isAllMembers)
-        }
+    /** Keeps the matched classes without listing members, or all fields or methods of them. */
+    private fun keepsBroadly(spec: ClassSpecification): Boolean = when (spec.directive) {
+        "keep", "keepnames" -> spec.members.isEmpty() || spec.members.any(::isAllMembers)
+        "keepclassmembers", "keepclassmembernames" -> spec.members.any(::isAllMembers)
+        else -> spec.members.all(::isAllMembers)
     }
 
     private fun isAllMembers(entry: String): Boolean =
         entry.split(WHITESPACE).filter { it !in IGNORED_MEMBER_MODIFIERS }.joinToString(" ") in ALL_MEMBERS
 
+    /** `-keeppackagenames` filters name packages; one outside the library's own lists the rule. */
     private fun keepsOtherPackageNames(unit: List<String>, label: String, packages: LibraryPackages): Boolean {
         val filters = unit.joinToString(" ").removePrefix("-keeppackagenames").split(',')
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("!") }
-        if (filters.isEmpty()) return true
-        val own = packages.ownPackages(label)
-        return filters.any { filter ->
-            val pkg = filter.takeWhile { it != '*' && it != '?' }.removeSuffix(".")
-            own.none { pkg == it || pkg.startsWith("$it.") }
-        }
+        return filters.isEmpty() || filters.any { !packages.isOwn(label, ClassNamePattern("$it.*")) }
     }
 }

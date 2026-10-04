@@ -1,8 +1,10 @@
 package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
 
+import org.gradle.api.artifacts.ArtifactCollection
 import org.gradle.api.artifacts.component.ComponentIdentifier
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.provider.Provider
 import java.io.File
 import java.io.Serializable
 
@@ -27,6 +29,10 @@ internal object RuleOrigins {
         is ProjectComponentIdentifier -> RuleOrigin(id.projectPath)
         else -> RuleOrigin(UNRESOLVED)
     }
+
+    /** Each resolved artifact's absolute path → the dependency it comes from; resolves lazily. */
+    fun byPath(artifacts: ArtifactCollection): Provider<Map<String, RuleOrigin>> =
+        artifacts.resolvedArtifacts.map { resolved -> resolved.associate { it.file.absolutePath to of(it.id.componentIdentifier) } }
 
     /**
      * Origin of a rule [file] R8 reads. Library files are looked up by absolute

@@ -108,25 +108,19 @@ class LibraryPackagesTest {
         assertThat(packages.isOwn("com.ghost:lib", ClassNamePattern("com.ghost.**"))).isFalse()
     }
 
-    private fun jar(vararg entries: String): ByteArray {
+    private fun zipBytes(vararg entries: Pair<String, ByteArray>): ByteArray {
         val bytes = ByteArrayOutputStream()
         ZipOutputStream(bytes).use { zip ->
-            entries.forEach {
-                zip.putNextEntry(ZipEntry(it))
-                zip.closeEntry()
-            }
-        }
-        return bytes.toByteArray()
-    }
-
-    private fun zip(file: File, vararg entries: Pair<String, ByteArray>): File {
-        ZipOutputStream(file.outputStream()).use { zip ->
             entries.forEach { (name, content) ->
                 zip.putNextEntry(ZipEntry(name))
                 zip.write(content)
                 zip.closeEntry()
             }
         }
-        return file
+        return bytes.toByteArray()
     }
+
+    private fun jar(vararg entries: String): ByteArray = zipBytes(*entries.map { it to ByteArray(0) }.toTypedArray())
+
+    private fun zip(file: File, vararg entries: Pair<String, ByteArray>): File = file.apply { writeBytes(zipBytes(*entries)) }
 }
