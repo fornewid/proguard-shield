@@ -9,8 +9,9 @@ import java.util.zip.ZipInputStream
  * code it does not ship. The other modules of a library's Maven group count as its own.
  *
  * @param byLibrary `group:module` → packages of its classes
+ * @param appNamespace the app's namespace; a pattern that reaches it reaches the app's code
  */
-internal class LibraryPackages(byLibrary: Map<String, Set<String>>) {
+internal class LibraryPackages(byLibrary: Map<String, Set<String>>, private val appNamespace: String? = null) {
 
     private val byGroup: Map<String, Set<String>> = byLibrary.entries
         .groupBy({ it.key.substringBefore(':') }, { it.value })
@@ -24,11 +25,12 @@ internal class LibraryPackages(byLibrary: Map<String, Set<String>>) {
     /**
      * Whether [pattern], in a rule of the library [label], stays inside the library: its package sits in one
      * of the library's packages, or every classpath package it can reach is the library's. A pattern
-     * without a package (`*`, `**`) also reaches the app, so it is never the library's own.
+     * without a package (`*`, `**`) or one that reaches [appNamespace] also reaches the app, so it is
+     * never the library's own.
      */
     fun isOwn(label: String, pattern: ClassNamePattern): Boolean {
         val pkg = pattern.packageLiteral
-        if (pkg.isEmpty()) return false
+        if (pkg.isEmpty() || appNamespace?.let(pattern::reaches) == true) return false
         val own = ownPackages(label)
         if (own.any { pkg == it || pkg.startsWith("$it.") }) return true
         // A single-package pattern reaches only its own package, which the check above covers.
@@ -41,10 +43,11 @@ internal class LibraryPackages(byLibrary: Map<String, Set<String>>) {
         private val VERSIONED = Regex("^META-INF/versions/\\d+/")
 
         /** Reads the packages of each artifact; [artifacts] maps an AAR or JAR to its `group:module`. */
-        fun read(artifacts: Map<File, String>): LibraryPackages = LibraryPackages(
+        fun read(artifacts: Map<File, String>, appNamespace: String): LibraryPackages = LibraryPackages(
             artifacts.entries
                 .groupBy({ it.value }, { packagesOf(it.key) })
                 .mapValues { (_, packages) -> packages.flatten().toSet() },
+            appNamespace,
         )
 
         /** Packages of the classes in a JAR, or in an AAR's `classes.jar` and `libs/` jars; empty for any other file. */

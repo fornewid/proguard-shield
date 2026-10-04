@@ -54,6 +54,10 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     @get:Input
     abstract val libraryArtifactOrigins: MapProperty<String, RuleOrigin>
 
+    /** The app's namespace: a library rule that reaches it reaches the app's code. */
+    @get:Input
+    abstract val appNamespace: Property<String>
+
     @get:Input
     abstract val configurationName: Property<String>
 
@@ -88,7 +92,9 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
         val configName = configurationName.get()
         val projectDir = File(projectDirPath.get())
         val origins = libraryOrigins.get()
-        val packages by lazy { LibraryPackages.read(libraryArtifactOrigins.get().entries.associate { File(it.key) to it.value.label }) }
+        val packages by lazy {
+            LibraryPackages.read(libraryArtifactOrigins.get().entries.associate { File(it.key) to it.value.label }, appNamespace.get())
+        }
 
         // Every output below is sorted or compared as a set, so file order does not matter.
         val rules = ruleInputs.files

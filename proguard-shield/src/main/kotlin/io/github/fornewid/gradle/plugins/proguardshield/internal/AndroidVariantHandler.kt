@@ -229,6 +229,7 @@ internal object AndroidVariantHandler {
             val libraryArtifacts = variant.runtimeConfiguration.incoming
                 .artifactView { componentFilter { it is ModuleComponentIdentifier } }
                 .artifacts
+            val appNamespace = variant.namespace
 
             fun ProGuardShieldOptimizationTask.configureOptimization(baseline: Boolean) {
                 this.ruleInputs.from(ruleInputs)
@@ -236,6 +237,7 @@ internal object AndroidVariantHandler {
                 this.libraryOrigins.set(libraryOrigins)
                 this.libraryArtifacts.from(libraryArtifacts.artifactFiles)
                 this.libraryArtifactOrigins.set(RuleOrigins.byPath(libraryArtifacts))
+                this.appNamespace.set(appNamespace)
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)
                 this.projectDirPath.set(projectDirPath)

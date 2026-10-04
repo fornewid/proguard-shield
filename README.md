@@ -126,7 +126,8 @@ library:
 
 A library's rule is not listed when it:
 
-- targets its own packages or another module of its Maven group
+- targets its own packages or another module of its Maven group, without
+  reaching the app's namespace
 - keeps app classes through its own types or an annotation:
   `-keep class * extends androidx.room.RoomDatabase { void <init>(); }`
 - keeps a single named class without members, or lists only some members:

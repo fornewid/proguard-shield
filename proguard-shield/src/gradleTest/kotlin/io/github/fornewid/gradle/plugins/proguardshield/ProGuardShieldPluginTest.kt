@@ -490,7 +490,8 @@ internal class ProGuardShieldPluginTest {
     fun `optimization lists library rules that reach code outside the library`() {
         AndroidProject(
             pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
-            dependencies = "implementation 'com.vendor:sdk:1.0'\nimplementation 'com.vendor:core:1.0'",
+            dependencies = "implementation 'com.vendor:sdk:1.0'\nimplementation 'com.vendor:core:1.0'\n" +
+                "implementation 'io.github.fornewid:core:1.0'",
         ).use { project ->
             project.publishLocalAar(
                 "com.vendor", "sdk", "1.0",
@@ -504,13 +505,22 @@ internal class ProGuardShieldPluginTest {
                 classes = listOf("com.vendor.sdk.Api"),
             )
             project.publishLocalAar("com.vendor", "core", "1.0", "", classes = listOf("com.vendor.core.Util"))
+            // Same group as the app's namespace (io.github.fornewid.test): the rule reaches the app's code.
+            project.publishLocalAar(
+                "io.github.fornewid", "core", "1.0",
+                "-keep class io.github.fornewid.** { *; }",
+                classes = listOf("io.github.fornewid.core.Util"),
+            )
 
             build(project, ":app:proguardShieldOptimizationBaseline")
 
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST))
-                .isEqualTo("-ignorewarnings\n-keep class com.google.gson.** { *; }\n")
-            assertThat(project.readBaselineFile(OPTIMIZATION_TREE))
-                .isEqualTo("[com.vendor:sdk]\n-ignorewarnings\n-keep class com.google.gson.** { *; }\n")
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo(
+                "-ignorewarnings\n-keep class com.google.gson.** { *; }\n-keep class io.github.fornewid.** { *; }\n",
+            )
+            assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo(
+                "[com.vendor:sdk]\n-ignorewarnings\n-keep class com.google.gson.** { *; }\n\n" +
+                    "[io.github.fornewid:core]\n-keep class io.github.fornewid.** { *; }\n",
+            )
         }
     }
 

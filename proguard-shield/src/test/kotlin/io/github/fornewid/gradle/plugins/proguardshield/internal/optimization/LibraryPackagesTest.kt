@@ -62,7 +62,7 @@ class LibraryPackagesTest {
     fun `read groups the packages of every artifact by library`() {
         val api = zip(dir.resolve("a.aar"), "classes.jar" to jar("com/bar/Api.class"))
         val extra = dir.resolve("b.jar").apply { writeBytes(jar("com/bar/extra/Util.class")) }
-        val read = LibraryPackages.read(mapOf(api to "com.bar:sdk", extra to "com.bar:sdk"))
+        val read = LibraryPackages.read(mapOf(api to "com.bar:sdk", extra to "com.bar:sdk"), appNamespace = "com.example.app")
         assertThat(read.ownPackages("com.bar:sdk")).containsExactly("com.bar", "com.bar.extra")
     }
 
@@ -100,6 +100,15 @@ class LibraryPackagesTest {
         val onlyOwn = LibraryPackages(mapOf("com.bar:sdk" to setOf("com.bar")))
         assertThat(onlyOwn.isOwn("com.bar:sdk", ClassNamePattern("*"))).isFalse()
         assertThat(onlyOwn.isOwn("com.bar:sdk", ClassNamePattern("**"))).isFalse()
+    }
+
+    @Test
+    fun `a pattern that reaches the app's namespace is never the library's own`() {
+        val acme = LibraryPackages(mapOf("com.acme:core" to setOf("com.acme", "com.acme.core")), appNamespace = "com.acme.app")
+        assertThat(acme.isOwn("com.acme:core", ClassNamePattern("com.acme.**"))).isFalse()
+        assertThat(acme.isOwn("com.acme:core", ClassNamePattern("com.acme.core.**"))).isTrue()
+        val noRootClasses = LibraryPackages(mapOf("com.acme:core" to setOf("com.acme.core")), appNamespace = "com.acme.app")
+        assertThat(noRootClasses.isOwn("com.acme:core", ClassNamePattern("com.acme.**"))).isFalse()
     }
 
     @Test
