@@ -132,7 +132,8 @@ class OptimizationBlockingRuleReportTest {
             ),
             removed = listOf(BlockingRule("-keepattributes *", app)),
         )
-        assertThat(message(RuleChanges.none(), tree)).isEqualTo(
+        val list = RuleChanges(added = listOf("-dontobfuscate", "-ignorewarnings", keepAll), removed = listOf("-keepattributes *"))
+        assertThat(message(list, tree)).isEqualTo(
             """
             ProGuard Shield: optimization-blocking rules changed in :app (release).
               [:app]

@@ -56,7 +56,10 @@ internal object LibraryRuleMatcher {
     private fun isAllMembers(entry: String): Boolean =
         entry.split(WHITESPACE).filter { it !in IGNORED_MEMBER_MODIFIERS }.joinToString(" ") in ALL_MEMBERS
 
-    /** `-keeppackagenames` filters name packages; one outside the library's own lists the rule. */
+    /**
+     * Listed with no filter or only `!` filters (both keep package names outside the library), or with a
+     * filter outside the library's own packages.
+     */
     private fun keepsOtherPackageNames(unit: List<String>, label: String, packages: LibraryPackages): Boolean {
         val filters = unit.joinToString(" ").removePrefix("-keeppackagenames").split(',')
             .map { it.trim() }

@@ -18,6 +18,8 @@ class LibraryRuleMatcherTest {
             "androidx.compose.ui:ui-android" to setOf("androidx.compose.ui", "androidx.compose.ui.graphics.painter"),
             "androidx.versionedparcelable:versionedparcelable" to setOf("androidx.versionedparcelable"),
             "org.jetbrains.kotlin:kotlin-stdlib" to setOf("kotlin"),
+            "com.kakao.sdk:user" to setOf("com.kakao.sdk.user"),
+            "com.kakao.sdk:common" to setOf("com.kakao.sdk.common"),
         ),
     )
 
@@ -44,6 +46,8 @@ class LibraryRuleMatcherTest {
             "-keep class com.facebook.** { *; }",
             "-keep class com.google.gson.** {\n*;\n}",
             "-keep class com.bar.Api, com.google.gson.** { *; }",
+            "-keepclasseswithmembers class com.google.gson.** { *; }",
+            "-keepclasseswithmembernames class com.google.gson.**",
         )
         assertListed("-keep class com.google.gson.** { *; }", label = "com.ghost:lib")
     }
@@ -77,6 +81,7 @@ class LibraryRuleMatcherTest {
             "-repackageclasses",
             "-keeppackagenames com.google.**",
             "-keeppackagenames",
+            "-keeppackagenames !com.bar.**",
         )
     }
 
@@ -87,6 +92,7 @@ class LibraryRuleMatcherTest {
             "-keep class com.bar.internal.Impl { *; }",
             "-keep class com.bar.ext.** { *; }",
             "-keeppackagenames com.bar.**",
+            "-keeppackagenames com.bar",
             "-assumenosideeffects class com.bar.internal.Log { *; }",
         )
         assertNotListed(
@@ -94,6 +100,7 @@ class LibraryRuleMatcherTest {
             label = "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
         )
         assertNotListed("-keep class com.bar.** { *; }", label = "com.bar:ghost")
+        assertNotListed("-keeppackagenames com.kakao.sdk.**", label = "com.kakao.sdk:user")
     }
 
     @Test
@@ -129,6 +136,7 @@ class LibraryRuleMatcherTest {
             "-keep class kotlin.Metadata",
             "-keep class com.google.gson.Gson { void toJson(); }",
             "-keep class com.google.gson.** { void foo(); }",
+            "-keepclasseswithmembers class com.google.gson.** { *; void foo(); }",
             "-keepclassmembers class * implements android.os.Parcelable { public static final *** CREATOR; }",
             "-keepclasseswithmembers class * { native <methods>; }",
         )
