@@ -11,10 +11,10 @@ import java.io.Serializable
 /**
  * Where a rule file comes from.
  *
- * @property label version-less name written to baselines, e.g. `com.example:sdk`, `:lib`, `<agp>`
+ * @property label name written to baselines: `com.example:sdk` (no version), `x.aar` (the file name), `:lib`, `<agp>`
  */
 internal data class RuleOrigin(val label: String) : Serializable {
-    /** An external module (`group:module`), not a project module (`:lib`), `<agp>` or `<unresolved>`. */
+    /** An external module (`group:module`) or file (`x.aar`), not a project module (`:lib`), `<agp>` or `<unresolved>`. */
     val isLibrary: Boolean get() = !label.startsWith(":") && !label.startsWith("<")
 }
 
@@ -27,7 +27,8 @@ internal object RuleOrigins {
     fun of(id: ComponentIdentifier): RuleOrigin = when (id) {
         is ModuleComponentIdentifier -> RuleOrigin("${id.group}:${id.module}")
         is ProjectComponentIdentifier -> RuleOrigin(id.projectPath)
-        else -> RuleOrigin(UNRESOLVED)
+        // A file dependency (`files("libs/x.aar")`) has an opaque id named after the file.
+        else -> RuleOrigin(id.displayName.takeIf { it.endsWith(".aar") || it.endsWith(".jar") } ?: UNRESOLVED)
     }
 
     /** Each resolved artifact's absolute path → the dependency it comes from; resolves lazily. */

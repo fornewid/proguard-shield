@@ -135,7 +135,7 @@ A library's rule is not listed when it:
 - has both `allowshrinking` and `allowobfuscation`
 
 With `tree = true`, `<variant>OptimizationBlockingRules.tree.txt` groups the
-rules by origin (versions omitted, so upgrading a library alone does not change it):
+rules by origin (Maven versions omitted, so upgrading a library alone does not change it):
 
 ```
 [:app]
@@ -154,7 +154,8 @@ ProGuard Shield: optimization-blocking rules changed in :app (release).
 ```
 
 Origins are the module path for project dependencies and the module's own
-files, `group:artifact` for external libraries, `<agp>` for the AGP default
+files, `group:artifact` for external libraries, the file name for file
+dependencies (`files("libs/x.aar")` → `x.aar`), `<agp>` for the AGP default
 rule file, and `<unresolved>` for anything else. Libraries excluded with AGP's
 `optimization.keepRules.ignoreFrom` are skipped, like R8 does.
 
@@ -208,6 +209,13 @@ proguardShield {
 | `fullFast` | `false` | Keep a full rule baseline read from R8's inputs without running R8. On `check`. |
 | `full` | `false` | Keep a full rule baseline as R8 prints it (runs R8, public AGP API only). Not on `check`. |
 | `forbiddenPatterns` | `[]` | Regex patterns that fail the full / fullFast modes whenever a matching rule appears. |
+
+## Migrating from 0.0.7
+
+- AAR/JAR file dependencies (`files("libs/x.aar")`) are now checked like
+  external libraries, and `.tree.txt` lists their rules under the file name
+  (`[x.aar]`) instead of `<unresolved>`. If `check` fails after the upgrade,
+  run `./gradlew proguardShieldOptimizationBaseline` and commit the result.
 
 ## Migrating from 0.0.6
 

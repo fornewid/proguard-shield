@@ -153,6 +153,10 @@ the configuration block.
 - **Not committing the empty baseline**: an empty
   `releaseOptimizationBlockingRules.txt` is common; commit it so a
   newly added blocking rule fails `check`.
+- **Upgrading from 0.0.7**: rules of AAR/JAR file dependencies
+  (`files("libs/x.aar")`) are now checked like external libraries. If `check`
+  fails after the upgrade, re-run `proguardShieldOptimizationBaseline` and
+  commit the result.
 - **Upgrading from 0.0.6**: the optimization mode also lists external libraries'
   rules that reach code outside the library. If `check` fails after the upgrade,
   re-run `proguardShieldOptimizationBaseline` and commit the result.

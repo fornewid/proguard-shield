@@ -19,7 +19,7 @@ internal data class RuleChanges<T>(val added: List<T>, val removed: List<T>) {
 /**
  * Renders and compares the optimization baselines, dependency-guard style:
  * a list (`<variant>OptimizationBlockingRules.txt`, each rule once) and an
- * optional tree (`.tree.txt`, rules grouped by version-less origin).
+ * optional tree (`.tree.txt`, rules grouped by origin).
  */
 internal object OptimizationBlockingRuleReport {
 
