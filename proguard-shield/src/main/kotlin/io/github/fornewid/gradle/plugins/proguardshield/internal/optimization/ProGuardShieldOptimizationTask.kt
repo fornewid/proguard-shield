@@ -92,6 +92,7 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
         val configName = configurationName.get()
         val projectDir = File(projectDirPath.get())
         val origins = libraryOrigins.get()
+        // Lazy: unused when AGP's optimization.keepRules.ignoreFrom drops every external library's rules.
         val packages by lazy {
             LibraryPackages.read(libraryArtifactOrigins.get().entries.associate { File(it.key) to it.value.label }, appNamespace.get())
         }
