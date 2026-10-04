@@ -96,7 +96,7 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
                 OptimizationBlockingRuleReport.diffTree(it, rules)
             }
         } else {
-            RuleChanges.NONE
+            RuleChanges.none()
         }
         if (listChanges.isEmpty && treeChanges.isEmpty) return
 
@@ -106,7 +106,6 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
                 configurationName = configName,
                 list = listChanges,
                 tree = treeChanges,
-                rules = rules,
                 rebaselineMessage = Messaging.rebaselineMessage(
                     projectPath = path,
                     configurationName = configName,
@@ -118,13 +117,13 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     }
 
     /** Writes [content] when re-baselining or when [file] is missing; otherwise compares against it. */
-    private fun writeOrCompare(file: File, content: String, compare: (String) -> RuleChanges): RuleChanges {
+    private fun <T> writeOrCompare(file: File, content: String, compare: (String) -> RuleChanges<T>): RuleChanges<T> {
         if (shouldBaseline.get() || !file.exists()) {
             file.writeText(content)
             logger.lifecycle(
                 RuleDiffResult.BaselineCreated(projectPath.get(), configurationName.get(), file).format(withColor = true),
             )
-            return RuleChanges.NONE
+            return RuleChanges.none()
         }
         return compare(file.readText())
     }

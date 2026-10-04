@@ -5,12 +5,12 @@ import org.junit.jupiter.api.Test
 
 class OptimizationBlockingRuleReportTest {
 
-    private val app = RuleOrigin(":app", ":app (proguard-rules.pro)")
-    private val lib = RuleOrigin(":lib", ":lib")
-    private val sdk = RuleOrigin("com.example:sdk", "com.example:sdk:1.2.3")
-    private val other = RuleOrigin("com.other:lib", "com.other:lib:4.0")
-    private val agp = RuleOrigin("<agp>", "<agp> (proguard-android-optimize.txt)")
-    private val unresolved = RuleOrigin("<unresolved>", "/elsewhere/rules.pro")
+    private val app = RuleOrigin(":app")
+    private val lib = RuleOrigin(":lib")
+    private val sdk = RuleOrigin("com.example:sdk")
+    private val other = RuleOrigin("com.other:lib")
+    private val agp = RuleOrigin("<agp>")
+    private val unresolved = RuleOrigin("<unresolved>")
     private val keepAll = "-keep class ** {\n*;\n}"
 
     @Test
@@ -90,8 +90,8 @@ class OptimizationBlockingRuleReportTest {
         assertThat(OptimizationBlockingRuleReport.diffList(OptimizationBlockingRuleReport.renderList(rules), rules).isEmpty).isTrue()
         assertThat(OptimizationBlockingRuleReport.diffTree(baseline, rules)).isEqualTo(
             RuleChanges(
-                added = listOf("[com.other:lib] -dontobfuscate"),
-                removed = listOf("[com.example:sdk] -dontobfuscate"),
+                added = listOf(LabeledRule("com.other:lib", "-dontobfuscate")),
+                removed = listOf(LabeledRule("com.example:sdk", "-dontobfuscate")),
             ),
         )
     }
@@ -104,25 +104,75 @@ class OptimizationBlockingRuleReportTest {
     }
 
     @Test
-    fun `failureMessage names every origin of an added rule`() {
-        val rules = listOf(BlockingRule("-dontobfuscate", sdk), BlockingRule("-dontobfuscate", other))
+    fun `failureMessage shows only the rule diff without a tree diff`() {
         val message = OptimizationBlockingRuleReport.failureMessage(
             projectPath = ":app",
             configurationName = "release",
-            list = RuleChanges(added = listOf("-dontobfuscate"), removed = listOf("-keepattributes *")),
-            tree = RuleChanges(added = listOf("[com.other:lib] -dontobfuscate"), removed = emptyList()),
-            rules = rules,
+            list = RuleChanges(added = listOf(keepAll), removed = listOf("-keepattributes *")),
+            tree = RuleChanges.none(),
             rebaselineMessage = "re-baseline hint",
         )
         assertThat(message).isEqualTo(
             """
             ProGuard Shield: optimization-blocking rules changed in :app (release).
-            + -dontobfuscate
-                from com.example:sdk:1.2.3, com.other:lib:4.0
+            + -keep class ** {
+            + *;
+            + }
             - -keepattributes *
 
-            Origins changed:
-            + [com.other:lib] -dontobfuscate
+            re-baseline hint
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun `failureMessage with a tree diff groups the changed rules under each origin`() {
+        val message = OptimizationBlockingRuleReport.failureMessage(
+            projectPath = ":app",
+            configurationName = "release",
+            list = RuleChanges(added = listOf("-dontobfuscate", "-ignorewarnings"), removed = listOf("-keepattributes *")),
+            tree = RuleChanges(
+                added = listOf(
+                    LabeledRule("com.example:sdk", "-dontobfuscate"),
+                    LabeledRule("com.example:sdk", "-ignorewarnings"),
+                    LabeledRule("com.other:lib", "-dontobfuscate"),
+                ),
+                removed = listOf(LabeledRule(":app", "-keepattributes *")),
+            ),
+            rebaselineMessage = "re-baseline hint",
+        )
+        assertThat(message).isEqualTo(
+            """
+            ProGuard Shield: optimization-blocking rules changed in :app (release).
+              [:app]
+            - -keepattributes *
+              [com.example:sdk]
+            + -dontobfuscate
+            + -ignorewarnings
+              [com.other:lib]
+            + -dontobfuscate
+
+            re-baseline hint
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun `failureMessage shows a rule another origin also adds under that origin only`() {
+        val message = OptimizationBlockingRuleReport.failureMessage(
+            projectPath = ":app",
+            configurationName = "release",
+            list = RuleChanges.none(),
+            tree = RuleChanges(added = listOf(LabeledRule("com.other:lib", keepAll)), removed = emptyList()),
+            rebaselineMessage = "re-baseline hint",
+        )
+        assertThat(message).isEqualTo(
+            """
+            ProGuard Shield: optimization-blocking rules changed in :app (release).
+              [com.other:lib]
+            + -keep class ** {
+            + *;
+            + }
 
             re-baseline hint
             """.trimIndent(),

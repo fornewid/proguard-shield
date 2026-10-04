@@ -14,14 +14,14 @@ class RuleOriginsTest {
     private val projectDir = File("/work/app")
 
     @Test
-    fun `module origin drops the version from the label but keeps it in the detail`() {
+    fun `module origin drops the version from the label`() {
         assertThat(RuleOrigins.of(module("com.example", "sdk", "1.2.3")))
-            .isEqualTo(RuleOrigin("com.example:sdk", "com.example:sdk:1.2.3"))
+            .isEqualTo(RuleOrigin("com.example:sdk"))
     }
 
     @Test
     fun `project origin uses the project path`() {
-        assertThat(RuleOrigins.of(project(":lib"))).isEqualTo(RuleOrigin(":lib", ":lib"))
+        assertThat(RuleOrigins.of(project(":lib"))).isEqualTo(RuleOrigin(":lib"))
     }
 
     @Test
@@ -29,13 +29,13 @@ class RuleOriginsTest {
         val id = object : ComponentIdentifier {
             override fun getDisplayName() = "libs/local.jar"
         }
-        assertThat(RuleOrigins.of(id)).isEqualTo(RuleOrigin("<unresolved>", "libs/local.jar"))
+        assertThat(RuleOrigins.of(id)).isEqualTo(RuleOrigin("<unresolved>"))
     }
 
     @Test
     fun `library files are resolved from the library map first`() {
         val file = File("/gradle/transforms/abc/proguard.txt")
-        val sdk = RuleOrigin("com.example:sdk", "com.example:sdk:1.2.3")
+        val sdk = RuleOrigin("com.example:sdk")
         val origin = RuleOrigins.resolve(file, mapOf(file.absolutePath to sdk), projectDir, ":app")
         assertThat(origin).isEqualTo(sdk)
     }
@@ -44,21 +44,21 @@ class RuleOriginsTest {
     fun `AGP default file wins over the module directory it lives in`() {
         val file = File("/work/app/build/intermediates/default_proguard_files/global/proguard-android-optimize.txt-8.8.0")
         assertThat(RuleOrigins.resolve(file, emptyMap(), projectDir, ":app"))
-            .isEqualTo(RuleOrigin("<agp>", "<agp> (proguard-android-optimize.txt-8.8.0)"))
+            .isEqualTo(RuleOrigin("<agp>"))
     }
 
     @Test
     fun `files inside the module are attributed to the module`() {
         val file = File("/work/app/proguard-rules.pro")
         assertThat(RuleOrigins.resolve(file, emptyMap(), projectDir, ":app"))
-            .isEqualTo(RuleOrigin(":app", ":app (proguard-rules.pro)"))
+            .isEqualTo(RuleOrigin(":app"))
     }
 
     @Test
-    fun `anything else is unresolved with its path`() {
+    fun `anything else is unresolved`() {
         val file = File("/elsewhere/rules.pro")
         assertThat(RuleOrigins.resolve(file, emptyMap(), projectDir, ":app"))
-            .isEqualTo(RuleOrigin("<unresolved>", file.absolutePath))
+            .isEqualTo(RuleOrigin("<unresolved>"))
     }
 
     private fun module(group: String, name: String, version: String): ModuleComponentIdentifier =
