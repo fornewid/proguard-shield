@@ -95,7 +95,8 @@ Each `configuration(...)` turns modes on and off with the flags in
 | full | off | `proguardShieldFull{Variant}`, `proguardShieldFullBaseline{Variant}` | `<variant>FullRules.txt` | no | public AGP API only |
 
 `proguardShieldOptimization`, `proguardShieldFullFast` and `proguardShieldFull`
-(and their `…Baseline` counterparts) run the mode for every configured variant.
+(and their `…Baseline` counterparts) run the mode for every configuration that
+enables it, and do nothing otherwise.
 Only full runs R8: it adds a `-printconfiguration` file to R8's inputs for the
 variants that enable it, and the other modes leave R8's inputs untouched. full is
 the reference — it uses only public AGP API and records exactly what R8 prints.
@@ -187,7 +188,10 @@ proguardShield {
 - `configuration("release")` now runs only the optimization mode. To keep the
   0.0.5 behavior, set `full = true` and `fullFast = true`.
 - `check` runs the optimization mode by default (previously fullFast).
-- `proguardShieldVerifyParity` exists only when both full and fullFast are enabled.
+- `proguardShieldFull`, `proguardShieldFullFast` and `proguardShieldVerifyParity`
+  pass without checking anything until full / fullFast are enabled.
+- `check` now fails on an unknown `configuration(...)` name (previously only the
+  full tasks validated it).
 - `forbiddenPatterns` applies only to the full and fullFast modes.
 
 ## Migrating from 0.0.4
@@ -214,6 +218,10 @@ changes in how R8 interprets unchanged rules — such as AGP's
 does not tell whether your rules are sufficient (new reflection without a
 matching keep rule produces no diff). After such changes, test your release
 build.
+
+On AGP 9, the optimization and fullFast modes do not read the rules of dynamic
+feature modules or AAPT2-generated rules, which AGP keeps in separate R8 inputs;
+the full mode sees everything R8 sees.
 
 ## Requirements
 

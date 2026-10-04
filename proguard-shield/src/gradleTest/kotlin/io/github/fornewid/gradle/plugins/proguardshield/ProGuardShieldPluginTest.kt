@@ -268,7 +268,7 @@ internal class ProGuardShieldPluginTest {
                 }
             """.trimIndent(),
         ).use { project ->
-            val result = buildAndFail(project, ":app:proguardShieldFull")
+            val result = buildAndFail(project, ":app:check", "--dry-run")
             assertThat(result.output).contains("could not resolve configuration")
             assertThat(result.output).contains("nonexistent")
             assertThat(result.output).contains("configuration(\"release\")")

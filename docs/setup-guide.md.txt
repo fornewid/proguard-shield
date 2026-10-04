@@ -152,7 +152,8 @@ the configuration block.
   newly added blocking rule fails `check`.
 - **Upgrading from 0.0.5**: `configuration("release")` now runs only the
   optimization mode. Set `full = true` / `fullFast = true` to keep the full
-  rule baselines.
+  rule baselines; until then `proguardShieldFull` / `proguardShieldFullFast`
+  pass without checking anything.
 - **Upgrading from 0.0.4**: rename `releaseRules.txt` → `releaseFullRules.txt`
   and `releaseFastRules.txt` → `releaseFullFastRules.txt`, and set
   `full = true` / `fullFast = true` to keep using them.

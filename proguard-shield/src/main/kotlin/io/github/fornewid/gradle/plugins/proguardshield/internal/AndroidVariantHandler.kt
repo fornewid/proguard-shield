@@ -199,6 +199,10 @@ internal object AndroidVariantHandler {
             )
         }
 
+        // Each library rule file mapped to the dependency that ships it (optimization), lazy like `ruleInputs`.
+        val libraryOrigins = project.provider { project.tasks.named(minifyTaskName).get() }
+            .flatMap { LibraryKeepRuleOrigins.of(it) }
+
         // configurationFiles references the user-selected default file under
         // build/intermediates/default_proguard_files/, which only exists after
         // extractProguardFiles runs. AAPT2-generated rules similarly require
@@ -223,8 +227,7 @@ internal object AndroidVariantHandler {
             fun ProGuardShieldOptimizationTask.configureOptimization(baseline: Boolean) {
                 this.ruleInputs.from(ruleInputs)
                 fastExtraDepNames.forEach { dependsOn(it) }
-                // Runs only when this task is realized: maps each library rule file to its dependency.
-                libraryOrigins.set(LibraryKeepRuleOrigins.of(project.tasks.named(minifyTaskName).get()))
+                this.libraryOrigins.set(libraryOrigins)
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)
                 this.projectDirPath.set(projectDirPath)

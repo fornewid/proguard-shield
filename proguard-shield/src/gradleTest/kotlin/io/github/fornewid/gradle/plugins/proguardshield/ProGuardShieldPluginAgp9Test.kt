@@ -26,10 +26,12 @@ internal class ProGuardShieldPluginAgp9Test {
 
     private fun newProject(
         proguardRules: String = AndroidProject.DEFAULT_PROGUARD_RULES,
+        pluginConfig: String = AndroidProject.DEFAULT_PLUGIN_CONFIG,
         releaseExtra: String = "",
         dependencies: String = "",
     ) = AndroidProject(
         proguardRules = proguardRules,
+        pluginConfig = pluginConfig,
         releaseExtra = releaseExtra,
         dependencies = dependencies,
         // Resource shrinking on: AGP 9 then emits no AAPT2 keep rules, so the
@@ -131,6 +133,23 @@ internal class ProGuardShieldPluginAgp9Test {
         }
     }
 
+    @Test
+    fun `optimization names the library that adds blocking rules on AGP 9`() {
+        newProject(
+            pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
+            dependencies = "implementation 'com.example:risky:1.0'",
+        ).use { project ->
+            project.publishLocalAar("com.example", "risky", "1.0", "-dontobfuscate\n-keep class ** { *; }")
+
+            build(project, ":app:proguardShieldOptimizationBaseline")
+
+            // The library's -dontobfuscate still reaches R8 on AGP 9.4 (it is in R8's own
+            // -printconfiguration output), so it is reported along with the keep.
+            assertThat(project.readBaselineFile(OPTIMIZATION_TREE))
+                .isEqualTo("[com.example:risky]\n-dontobfuscate\n-keep class ** { *; }\n")
+        }
+    }
+
     private companion object {
         const val AGP_VERSION = "9.4.1"
 
@@ -140,5 +159,6 @@ internal class ProGuardShieldPluginAgp9Test {
         const val FULL_BASELINE = "proguardShield/releaseFullRules.txt"
         const val FULL_FAST_BASELINE = "proguardShield/releaseFullFastRules.txt"
         const val OPTIMIZATION_LIST = "proguardShield/releaseOptimizationBlockingRules.txt"
+        const val OPTIMIZATION_TREE = "proguardShield/releaseOptimizationBlockingRules.tree.txt"
     }
 }
