@@ -174,6 +174,35 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
+    fun `fast path drops consumer rules ignored via keepRules DSL so parity holds`() {
+        AndroidProject(
+            // `ignoreExternalDependencies` exists on every supported AGP;
+            // `ignoreFrom` (8.8+) is a newer alias feeding the same filter.
+            releaseExtra = """
+                optimization {
+                    keepRules {
+                        ignoreExternalDependencies 'com.example:ignored'
+                    }
+                }
+            """.trimIndent(),
+            dependencies = """
+                implementation 'com.example:ignored:1.0'
+                implementation 'com.example:kept:1.0'
+            """.trimIndent(),
+        ).use { project ->
+            project.publishLocalAar("com.example", "ignored", "1.0", "-keep class com.example.ignored.Marker")
+            project.publishLocalAar("com.example", "kept", "1.0", "-keep class com.example.kept.Marker")
+
+            val result = build(project, ":app:proguardShieldVerifyParity")
+
+            assertThat(result.output).contains("parity holds")
+            val fast = project.readBaselineFile(FAST_BASELINE)!!
+            assertThat(fast).contains("com.example.kept.Marker")
+            assertThat(fast).doesNotContain("com.example.ignored.Marker")
+        }
+    }
+
+    @Test
     fun `guard passes when rules have not changed`() {
         AndroidProject().use { project ->
             build(project, ":app:proguardShieldBaseline")

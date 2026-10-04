@@ -7,6 +7,7 @@ import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPluginExtension
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.GenerateInjectedRulesTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.ProGuardShieldListTask
+import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.IgnoredLibraryKeepRules
 import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.ProGuardShieldFastListTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.R8TaskInputExtractor
 import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.OutputFileUtils
@@ -174,7 +175,12 @@ internal object AndroidVariantHandler {
 
         // ---- Approach 2-B: fast (reads R8 inputs directly) ----
         val ruleInputs = project.provider {
-            R8TaskInputExtractor.allRuleFiles(project.tasks.named(minifyTaskName).get())
+            val minifyTask = project.tasks.named(minifyTaskName).get()
+            IgnoredLibraryKeepRules.exclude(
+                minifyTask,
+                R8TaskInputExtractor.allRuleFiles(minifyTask),
+                project.objects,
+            )
         }
 
         // configurationFiles references the user-selected default file under
