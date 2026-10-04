@@ -9,6 +9,7 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
@@ -57,6 +58,10 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     /** The app's namespace: a library rule that reaches it reaches the app's code. */
     @get:Input
     abstract val appNamespace: Property<String>
+
+    /** How R8 reads the rules ([R8Context]), written as the list's header. */
+    @get:Input
+    abstract val r8Context: ListProperty<String>
 
     @get:Input
     abstract val configurationName: Property<String>
@@ -110,8 +115,9 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
                     .map { BlockingRule(it.joinToString("\n"), origin) }
             }
 
-        val listChanges = writeOrCompare(listFile.get().asFile, OptimizationBlockingRuleReport.renderList(rules)) {
-            OptimizationBlockingRuleReport.diffList(it, rules)
+        val context = r8Context.get()
+        val listChanges = writeOrCompare(listFile.get().asFile, OptimizationBlockingRuleReport.renderList(rules, context)) {
+            OptimizationBlockingRuleReport.diffList(it, rules, context)
         }
         val treeChanges = if (treeFile.isPresent) {
             writeOrCompare(treeFile.get().asFile, OptimizationBlockingRuleReport.renderTree(rules)) {
