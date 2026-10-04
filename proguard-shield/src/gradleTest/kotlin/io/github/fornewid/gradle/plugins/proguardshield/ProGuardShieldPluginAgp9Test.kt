@@ -40,22 +40,22 @@ internal class ProGuardShieldPluginAgp9Test {
     )
 
     @Test
-    fun `accurate baseline task writes the accurate baseline on AGP 9`() {
+    fun `full baseline task writes the full baseline on AGP 9`() {
         newProject().use { project ->
-            val result = build(project, ":app:proguardShieldBaselineRelease")
+            val result = build(project, ":app:proguardShieldFullBaselineRelease")
 
             assertThat(result.output).contains("ProGuard Shield baseline created")
-            assertThat(project.readBaselineFile(ACCURATE_BASELINE)).contains("-keepattributes")
+            assertThat(project.readBaselineFile(FULL_BASELINE)).contains("-keepattributes")
         }
     }
 
     @Test
-    fun `fast baseline task writes the fast baseline on AGP 9`() {
+    fun `fullFast baseline task writes the fullFast baseline on AGP 9`() {
         newProject().use { project ->
-            val result = build(project, ":app:proguardShieldFastBaselineRelease")
+            val result = build(project, ":app:proguardShieldFullFastBaselineRelease")
 
             assertThat(result.output).contains("ProGuard Shield baseline created")
-            assertThat(project.readBaselineFile(FAST_BASELINE)).contains("-keepattributes")
+            assertThat(project.readBaselineFile(FULL_FAST_BASELINE)).contains("-keepattributes")
             assertThat(result.task(":app:minifyReleaseWithR8")).isNull()
         }
     }
@@ -63,23 +63,23 @@ internal class ProGuardShieldPluginAgp9Test {
     @Test
     fun `guard passes when rules have not changed on AGP 9`() {
         newProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
-            val result = build(project, ":app:proguardShield")
+            val result = build(project, ":app:proguardShieldFull")
             assertThat(result.output).doesNotContain("rules changed")
         }
     }
 
     @Test
-    fun `fast guard fails when a new rule is added on AGP 9`() {
+    fun `fullFast guard fails when a new rule is added on AGP 9`() {
         newProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
+            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
 
             project.updateProguardRules(
                 AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keep class com.example.Added { *; }",
             )
 
-            val result = buildAndFail(project, ":app:proguardShieldFastRelease")
+            val result = buildAndFail(project, ":app:proguardShieldFullFastRelease")
             assertThat(result.output).contains("rules changed")
             assertThat(result.output).contains("-keep class com.example.Added")
         }
@@ -94,7 +94,7 @@ internal class ProGuardShieldPluginAgp9Test {
     }
 
     @Test
-    fun `fast path drops consumer rules ignored via ignoreFrom on AGP 9`() {
+    fun `fullFast drops consumer rules ignored via ignoreFrom on AGP 9`() {
         newProject(
             releaseExtra = """
                 optimization {
@@ -114,7 +114,7 @@ internal class ProGuardShieldPluginAgp9Test {
             val result = build(project, ":app:proguardShieldVerifyParity")
 
             assertThat(result.output).contains("parity holds")
-            val fast = project.readBaselineFile(FAST_BASELINE)!!
+            val fast = project.readBaselineFile(FULL_FAST_BASELINE)!!
             assertThat(fast).contains("com.example.kept.Marker")
             assertThat(fast).doesNotContain("com.example.ignored.Marker")
         }
@@ -126,7 +126,7 @@ internal class ProGuardShieldPluginAgp9Test {
         // AGP 9.4.1 requires Gradle 9.6.0+.
         const val GRADLE_VERSION = "9.6.1"
 
-        const val ACCURATE_BASELINE = "proguardShield/releaseRules.txt"
-        const val FAST_BASELINE = "proguardShield/releaseFastRules.txt"
+        const val FULL_BASELINE = "proguardShield/releaseFullRules.txt"
+        const val FULL_FAST_BASELINE = "proguardShield/releaseFullFastRules.txt"
     }
 }

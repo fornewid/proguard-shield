@@ -10,7 +10,7 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Provider
 
 /**
- * Reproduces AGP's `optimization.keepRules` ignore filter for the fast path.
+ * Reproduces AGP's `optimization.keepRules` ignore filter for the fullFast mode.
  *
  * `ProguardConfigurableTask.configurationFiles` holds every library's consumer
  * rules unfiltered; AGP drops the ignored ones only when R8 runs (8.x in
@@ -41,9 +41,9 @@ internal object IgnoredLibraryKeepRules {
             task.javaClass.getMethod("getLibraryKeepRules").invoke(task) as ArtifactCollection
         }.getOrElse {
             throw GradleException(
-                "ProGuard Shield fast mode: keep-rule ignore DSL is set on ${task.path} but " +
+                "ProGuard Shield fullFast mode: keep-rule ignore DSL is set on ${task.path} but " +
                     "'getLibraryKeepRules' could not be read in this AGP version. " +
-                    "Switch to the standard 'proguardShield' task instead of 'proguardShieldFast'.",
+                    "Switch to the 'proguardShieldFull' task instead of 'proguardShieldFullFast'.",
                 it,
             )
         }

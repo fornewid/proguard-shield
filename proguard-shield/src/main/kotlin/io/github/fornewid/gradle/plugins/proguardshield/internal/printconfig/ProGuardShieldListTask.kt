@@ -23,8 +23,8 @@ import org.gradle.api.tasks.TaskAction
  * Reads R8's `-printconfiguration` output and either writes it to a baseline file
  * ([shouldBaseline] = true / baseline missing) or diffs against an existing baseline.
  *
- * Approach 1 of the v0 prototype — accurate (100% of R8's merged rules) but slow
- * (requires running the full `minify{Variant}WithR8` task beforehand).
+ * The full mode — exactly R8's merged rules, but slow (requires running the
+ * `minify{Variant}WithR8` task beforehand). Uses only public AGP API.
  */
 internal abstract class ProGuardShieldListTask : DefaultTask() {
 
@@ -74,7 +74,7 @@ internal abstract class ProGuardShieldListTask : DefaultTask() {
         val normalized = units.flatten().joinToString("\n")
 
         // Forbidden-pattern check first — strongest signal, no rebaseline can
-        // silence it. Both the accurate and fast tasks run the identical check
+        // silence it. Both the full and fullFast tasks run the identical check
         // on the identical normalized inputs, preserving parity.
         val violations = try {
             ForbiddenPatternChecker.check(units, forbiddenPatterns.get())

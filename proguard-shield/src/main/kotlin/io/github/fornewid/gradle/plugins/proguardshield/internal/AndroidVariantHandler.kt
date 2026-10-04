@@ -26,10 +26,10 @@ internal object AndroidVariantHandler {
     fun configureVariants(
         project: Project,
         extension: ProGuardShieldPluginExtension,
-        guardTask: TaskProvider<*>,
-        baselineTask: TaskProvider<*>,
-        fastGuardTask: TaskProvider<*>,
-        fastBaselineTask: TaskProvider<*>,
+        fullGuardTask: TaskProvider<*>,
+        fullBaselineTask: TaskProvider<*>,
+        fullFastGuardTask: TaskProvider<*>,
+        fullFastBaselineTask: TaskProvider<*>,
         verifyParityTask: TaskProvider<*>,
     ) {
         val androidComponents = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java)
@@ -50,10 +50,10 @@ internal object AndroidVariantHandler {
                         baselineDir = extension.baselineDir.get(),
                         config = this,
                         variant = variant,
-                        guardTask = guardTask,
-                        baselineTask = baselineTask,
-                        fastGuardTask = fastGuardTask,
-                        fastBaselineTask = fastBaselineTask,
+                        fullGuardTask = fullGuardTask,
+                        fullBaselineTask = fullBaselineTask,
+                        fullFastGuardTask = fullFastGuardTask,
+                        fullFastBaselineTask = fullFastBaselineTask,
                         verifyParityTask = verifyParityTask,
                     )
                 }
@@ -61,12 +61,12 @@ internal object AndroidVariantHandler {
         }
 
         // Validate at task configuration time (not doFirst) — CC-safe.
-        // `guardTask.configure {}` runs at configuration time and captures only plain
+        // `fullGuardTask.configure {}` runs at configuration time and captures only plain
         // String sets; the lambda itself is not serialized into the CC state.
-        guardTask.configure {
+        fullGuardTask.configure {
             validateConfigurations(declaredConfigNames, matchedConfigs, allVariantNames)
         }
-        baselineTask.configure {
+        fullBaselineTask.configure {
             validateConfigurations(declaredConfigNames, matchedConfigs, allVariantNames)
         }
     }
@@ -104,10 +104,10 @@ internal object AndroidVariantHandler {
         baselineDir: String,
         config: ProGuardShieldConfiguration,
         variant: ApplicationVariant,
-        guardTask: TaskProvider<*>,
-        baselineTask: TaskProvider<*>,
-        fastGuardTask: TaskProvider<*>,
-        fastBaselineTask: TaskProvider<*>,
+        fullGuardTask: TaskProvider<*>,
+        fullBaselineTask: TaskProvider<*>,
+        fullFastGuardTask: TaskProvider<*>,
+        fullFastBaselineTask: TaskProvider<*>,
         verifyParityTask: TaskProvider<*>,
     ) {
         if (!variant.isMinifyEnabled) {
@@ -121,8 +121,8 @@ internal object AndroidVariantHandler {
 
         val capitalizedName = config.configurationName.capitalize()
         val baselineDirectory = OutputFileUtils.proguardShieldDir(project, baselineDir)
-        val filePrefix = "${config.configurationName}Rules"
-        val fastFilePrefix = "${config.configurationName}FastRules"
+        val fullFilePrefix = "${config.configurationName}FullRules"
+        val fullFastFilePrefix = "${config.configurationName}FullFastRules"
         val variantOutputDir = project.layout.buildDirectory.dir("proguardShield/${variant.name}")
         val mergedRulesFile = variantOutputDir.map { it.file("merged-rules.txt") }
         val injectProFile = variantOutputDir.map { it.file("inject.pro") }
@@ -140,9 +140,9 @@ internal object AndroidVariantHandler {
 
         val minifyTaskName = "minify${capitalizedName}WithR8"
 
-        // ---- Approach 1: accurate (runs R8) ----
-        val perConfigGuardTask = project.tasks.register(
-            "proguardShield$capitalizedName",
+        // ---- Full: runs R8 (public AGP API only) ----
+        val fullConfigGuardTask = project.tasks.register(
+            "proguardShieldFull$capitalizedName",
             ProGuardShieldListTask::class.java,
         ) {
             dependsOn(minifyTaskName)
@@ -152,13 +152,13 @@ internal object AndroidVariantHandler {
             shouldBaseline.set(false)
             pluginVersion.set(ProGuardShieldPlugin.VERSION)
             this.baselineDir.set(baselineDirectory)
-            this.filePrefix.set(filePrefix)
+            this.filePrefix.set(fullFilePrefix)
             forbiddenPatterns.set(config.forbiddenPatterns)
         }
-        guardTask.configure { dependsOn(perConfigGuardTask) }
+        fullGuardTask.configure { dependsOn(fullConfigGuardTask) }
 
-        val perConfigBaselineTask = project.tasks.register(
-            "proguardShieldBaseline$capitalizedName",
+        val fullConfigBaselineTask = project.tasks.register(
+            "proguardShieldFullBaseline$capitalizedName",
             ProGuardShieldListTask::class.java,
         ) {
             dependsOn(minifyTaskName)
@@ -168,12 +168,12 @@ internal object AndroidVariantHandler {
             shouldBaseline.set(true)
             pluginVersion.set(ProGuardShieldPlugin.VERSION)
             this.baselineDir.set(baselineDirectory)
-            this.filePrefix.set(filePrefix)
+            this.filePrefix.set(fullFilePrefix)
             forbiddenPatterns.set(config.forbiddenPatterns)
         }
-        baselineTask.configure { dependsOn(perConfigBaselineTask) }
+        fullBaselineTask.configure { dependsOn(fullConfigBaselineTask) }
 
-        // ---- Approach 2-B: fast (reads R8 inputs directly) ----
+        // ---- FullFast: reads R8 inputs directly, without running R8 ----
         val ruleInputs = project.provider {
             val minifyTask = project.tasks.named(minifyTaskName).get()
             IgnoredLibraryKeepRules.exclude(
@@ -188,7 +188,7 @@ internal object AndroidVariantHandler {
         // extractProguardFiles runs. AAPT2-generated rules similarly require
         // their merge task. These task names are AGP-internal — if they ever
         // change, Gradle surfaces a "Task not found" error at execution time
-        // and users can fall back to the accurate `proguardShield` task.
+        // and users can fall back to the full `proguardShieldFull` task.
         val fastExtraDepNames = listOf(
             "extractProguardFiles",
             "merge${capitalizedName}GeneratedProguardFiles",
@@ -196,8 +196,8 @@ internal object AndroidVariantHandler {
 
         val rootDir = project.rootDir.absolutePath
 
-        val fastConfigGuardTask = project.tasks.register(
-            "proguardShieldFast$capitalizedName",
+        val fullFastConfigGuardTask = project.tasks.register(
+            "proguardShieldFullFast$capitalizedName",
             ProGuardShieldFastListTask::class.java,
         ) {
             this.ruleInputs.from(ruleInputs)
@@ -208,14 +208,14 @@ internal object AndroidVariantHandler {
             shouldBaseline.set(false)
             pluginVersion.set(ProGuardShieldPlugin.VERSION)
             this.baselineDir.set(baselineDirectory)
-            this.filePrefix.set(fastFilePrefix)
+            this.filePrefix.set(fullFastFilePrefix)
             this.rootDirPath.set(rootDir)
             forbiddenPatterns.set(config.forbiddenPatterns)
         }
-        fastGuardTask.configure { dependsOn(fastConfigGuardTask) }
+        fullFastGuardTask.configure { dependsOn(fullFastConfigGuardTask) }
 
-        val fastConfigBaselineTask = project.tasks.register(
-            "proguardShieldFastBaseline$capitalizedName",
+        val fullFastConfigBaselineTask = project.tasks.register(
+            "proguardShieldFullFastBaseline$capitalizedName",
             ProGuardShieldFastListTask::class.java,
         ) {
             this.ruleInputs.from(ruleInputs)
@@ -226,28 +226,22 @@ internal object AndroidVariantHandler {
             shouldBaseline.set(true)
             pluginVersion.set(ProGuardShieldPlugin.VERSION)
             this.baselineDir.set(baselineDirectory)
-            this.filePrefix.set(fastFilePrefix)
+            this.filePrefix.set(fullFastFilePrefix)
             this.rootDirPath.set(rootDir)
             forbiddenPatterns.set(config.forbiddenPatterns)
         }
-        fastBaselineTask.configure { dependsOn(fastConfigBaselineTask) }
-
-        // The baseline aggregate writes both files in one shot — users
-        // running `./gradlew :app:proguardShieldBaseline` on first install
-        // or after intentional rule changes need both committed. The guard
-        // aggregates stay accurate-only / fast-only respectively.
-        baselineTask.configure { dependsOn(fastConfigBaselineTask) }
+        fullFastBaselineTask.configure { dependsOn(fullFastConfigBaselineTask) }
 
         // Guard and baseline tasks share `baselineDir` as an output. When both
         // run in one build, the guard must compare against the committed
         // baseline before it is regenerated. This also orders the parity task
         // (which reads the baselines) after the guards.
-        perConfigBaselineTask.configure { mustRunAfter(perConfigGuardTask) }
-        fastConfigBaselineTask.configure { mustRunAfter(fastConfigGuardTask) }
+        fullConfigBaselineTask.configure { mustRunAfter(fullConfigGuardTask) }
+        fullFastConfigBaselineTask.configure { mustRunAfter(fullFastConfigGuardTask) }
 
         // ---- Parity verification (regenerate both baselines, then byte-compare) ----
-        val accurateBaselinePath = baselineDirectory.file("$filePrefix.txt")
-        val fastBaselinePath = baselineDirectory.file("$fastFilePrefix.txt")
+        val fullBaselinePath = baselineDirectory.file("$fullFilePrefix.txt")
+        val fullFastBaselinePath = baselineDirectory.file("$fullFastFilePrefix.txt")
 
         val perConfigVerifyParityTask = project.tasks.register(
             "proguardShieldVerifyParity$capitalizedName",
@@ -255,10 +249,10 @@ internal object AndroidVariantHandler {
         ) {
             // Force a fresh capture of both baselines first so the comparison
             // reflects the current build, not whatever was committed earlier.
-            dependsOn(perConfigBaselineTask)
-            dependsOn(fastConfigBaselineTask)
-            accurateBaseline.set(accurateBaselinePath)
-            fastBaseline.set(fastBaselinePath)
+            dependsOn(fullConfigBaselineTask)
+            dependsOn(fullFastConfigBaselineTask)
+            accurateBaseline.set(fullBaselinePath)
+            fastBaseline.set(fullFastBaselinePath)
             configurationName.set(config.configurationName)
             projectPath.set(project.path)
         }

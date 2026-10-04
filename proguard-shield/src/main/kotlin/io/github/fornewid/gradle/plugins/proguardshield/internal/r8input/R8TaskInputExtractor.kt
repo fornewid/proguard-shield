@@ -13,7 +13,7 @@ import org.gradle.api.file.FileCollection
  *   uses — app `.pro`, AAR consumer rules, plugin-injected, and the single
  *   default file the user chose via `getDefaultProguardFile(...)`. Note the
  *   default file path lives under `build/intermediates/.../default_proguard_files/`
- *   and only exists after `extractProguardFiles` runs, so the fast task must
+ *   and only exists after `extractProguardFiles` runs, so the fullFast task must
  *   `dependsOn(extractProguardFiles)` explicitly.
  * - `generatedProguardFile` (reflection): AAPT2-generated rules.
  * - `keepRulesFiles` (reflection, optional): keep-rule source sets
@@ -39,15 +39,15 @@ internal object R8TaskInputExtractor {
         val baseClass = runCatching { task.javaClass.classLoader.loadClass(BASE_CLASS) }
             .getOrElse {
                 throw GradleException(
-                    "ProGuard Shield fast mode: AGP internal class '$BASE_CLASS' not found. " +
+                    "ProGuard Shield fullFast mode: AGP internal class '$BASE_CLASS' not found. " +
                         "This AGP version is unsupported; " +
-                        "use the standard 'proguardShield' task instead of 'proguardShieldFast'.",
+                        "use the 'proguardShieldFull' task instead of 'proguardShieldFullFast'.",
                 )
             }
 
         if (!baseClass.isInstance(task)) {
             throw GradleException(
-                "ProGuard Shield fast mode: ${task.path} is not a ProguardConfigurableTask " +
+                "ProGuard Shield fullFast mode: ${task.path} is not a ProguardConfigurableTask " +
                     "(got ${task::class.qualifiedName}). Expected AGP's R8 task.",
             )
         }
@@ -62,17 +62,17 @@ internal object R8TaskInputExtractor {
                 .getOrElse {
                     if (methodName in OPTIONAL_METHOD_NAMES) return@mapNotNull null
                     throw GradleException(
-                        "ProGuard Shield fast mode: method '$methodName' not found on " +
-                            "$BASE_CLASS in this AGP version. Switch to the standard " +
-                            "'proguardShield' task instead of 'proguardShieldFast'.",
+                        "ProGuard Shield fullFast mode: method '$methodName' not found on " +
+                            "$BASE_CLASS in this AGP version. Switch to the " +
+                            "'proguardShieldFull' task instead of 'proguardShieldFullFast'.",
                     )
                 }
             val value = method.invoke(target)
             value as? FileCollection
                 ?: throw GradleException(
-                    "ProGuard Shield fast mode: $methodName returned an unsupported type " +
+                    "ProGuard Shield fullFast mode: $methodName returned an unsupported type " +
                         "(${value?.let { it::class.qualifiedName }}) in this AGP version. " +
-                        "Switch to the standard 'proguardShield' task instead of 'proguardShieldFast'.",
+                        "Switch to the 'proguardShieldFull' task instead of 'proguardShieldFullFast'.",
                 )
         }
 

@@ -36,8 +36,8 @@ public open class ProGuardShieldConfiguration @Inject constructor(
      * )
      * ```
      *
-     * Both the accurate (`proguardShield`) and fast (`proguardShieldFast`)
-     * paths run the same check on the same normalized inputs, so the parity
+     * Both the full (`proguardShieldFull`) and fullFast (`proguardShieldFullFast`)
+     * modes run the same check on the same normalized inputs, so the parity
      * invariant is preserved.
      */
     @get:Input

@@ -11,7 +11,7 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.rules
  * committed baseline still shows which class's keep block actually changed.
  *
  * R8's own `-printconfiguration` line order is not stable across versions,
- * and the fast path concatenates input `.pro` files in arbitrary order —
+ * and the fullFast mode concatenates input `.pro` files in arbitrary order —
  * sorting by header line absorbs both. Bodies stay in the order R8 wrote
  * them within a unit.
  */
@@ -36,8 +36,8 @@ internal object RuleNormalizer {
             // Without the tie-break, two units with identical headers
             // (e.g. several `-keepclasseswithmembers class * { ... }`
             // blocks differing only by their inner annotation) would
-            // keep input order — which differs between the accurate and
-            // fast paths and breaks bit-identical parity.
+            // keep input order — which differs between the full and
+            // fullFast modes and breaks bit-identical parity.
             .sortedWith(compareBy({ it.first() }, { it.joinToString("\n") }))
     }
 
