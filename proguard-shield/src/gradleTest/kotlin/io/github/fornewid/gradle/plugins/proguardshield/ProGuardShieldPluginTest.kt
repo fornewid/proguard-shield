@@ -491,7 +491,8 @@ internal class ProGuardShieldPluginTest {
         AndroidProject(
             pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
             dependencies = "implementation 'com.vendor:sdk:1.0'\nimplementation 'com.vendor:core:1.0'\n" +
-                "implementation 'io.github.fornewid:core:1.0'\nimplementation files('libs/vendor-file.aar')",
+                "implementation 'io.github.fornewid:core:1.0'\nimplementation files('libs/vendor-file.aar')\n" +
+                "implementation 'com.jarvendor:util:1.0'",
         ).use { project ->
             project.publishLocalAar(
                 "com.vendor", "sdk", "1.0",
@@ -517,15 +518,22 @@ internal class ProGuardShieldPluginTest {
                 "-keep class okhttp3.** { *; }\n-keep class com.vendor.file.** { *; }",
                 classes = listOf("com.vendor.file.Util"),
             )
+            // A JAR library: its own packages come from the same package-list transform as an AAR's.
+            project.publishLocalJar(
+                "com.jarvendor", "util", "1.0",
+                "-keep class com.jarvendor.util.** { *; }\n-keep class okio.** { *; }",
+                classes = listOf("com.jarvendor.util.Util"),
+            )
 
             build(project, ":app:proguardShieldOptimizationBaseline")
 
             assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo(
                 "-ignorewarnings\n-keep class com.google.gson.** { *; }\n-keep class io.github.fornewid.** { *; }\n" +
-                    "-keep class okhttp3.** { *; }\n",
+                    "-keep class okhttp3.** { *; }\n-keep class okio.** { *; }\n",
             )
             assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo(
-                "[com.vendor:sdk]\n-ignorewarnings\n-keep class com.google.gson.** { *; }\n\n" +
+                "[com.jarvendor:util]\n-keep class okio.** { *; }\n\n" +
+                    "[com.vendor:sdk]\n-ignorewarnings\n-keep class com.google.gson.** { *; }\n\n" +
                     "[io.github.fornewid:core]\n-keep class io.github.fornewid.** { *; }\n\n" +
                     "[vendor-file.aar]\n-keep class okhttp3.** { *; }\n",
             )

@@ -134,6 +134,16 @@ internal class AndroidProject(
         consumerRules: String,
         classes: List<String> = emptyList(),
     ) {
+        writeAar(localRepoArtifact(group, name, version, "aar"), "$group.$name", consumerRules, classes)
+    }
+
+    /** Publishes a JAR library whose keep rules are in `META-INF/proguard/`, where JARs ship them. */
+    fun publishLocalJar(group: String, name: String, version: String, rules: String, classes: List<String> = emptyList()) {
+        localRepoArtifact(group, name, version, "jar").writeBytes(classesJar(classes, "META-INF/proguard/$name.pro" to rules))
+    }
+
+    /** Writes the POM of `group:name:version` to the local repository and returns its artifact file. */
+    private fun localRepoArtifact(group: String, name: String, version: String, packaging: String): File {
         val moduleDir = dir.resolve("$LOCAL_REPO/${group.replace('.', '/')}/$name/$version").apply { mkdirs() }
         moduleDir.resolve("$name-$version.pom").writeText(
             """
@@ -143,11 +153,11 @@ internal class AndroidProject(
               <groupId>$group</groupId>
               <artifactId>$name</artifactId>
               <version>$version</version>
-              <packaging>aar</packaging>
+              <packaging>$packaging</packaging>
             </project>
             """.trimIndent(),
         )
-        writeAar(moduleDir.resolve("$name-$version.aar"), "$group.$name", consumerRules, classes)
+        return moduleDir.resolve("$name-$version.$packaging")
     }
 
     /** Writes an AAR to `app/libs/[fileName]`, for a `files('libs/...')` dependency. */
@@ -163,20 +173,28 @@ internal class AndroidProject(
                     .toByteArray(),
             )
             aar.putNextEntry(ZipEntry("classes.jar"))
-            val classesJar = ByteArrayOutputStream()
-            ZipOutputStream(classesJar).use { jar ->
-                jar.putNextEntry(ZipEntry("META-INF/"))
-                classes.forEach { className ->
-                    val internalName = className.replace('.', '/')
-                    jar.putNextEntry(ZipEntry("$internalName.class"))
-                    jar.write(minimalClassFile(internalName))
-                }
-            }
-            aar.write(classesJar.toByteArray())
+            aar.write(classesJar(classes))
             aar.putNextEntry(ZipEntry("R.txt"))
             aar.putNextEntry(ZipEntry("proguard.txt"))
             aar.write(consumerRules.toByteArray())
         }
+    }
+
+    private fun classesJar(classes: List<String>, vararg textFiles: Pair<String, String>): ByteArray {
+        val bytes = ByteArrayOutputStream()
+        ZipOutputStream(bytes).use { jar ->
+            jar.putNextEntry(ZipEntry("META-INF/"))
+            textFiles.forEach { (path, text) ->
+                jar.putNextEntry(ZipEntry(path))
+                jar.write(text.toByteArray())
+            }
+            classes.forEach { className ->
+                val internalName = className.replace('.', '/')
+                jar.putNextEntry(ZipEntry("$internalName.class"))
+                jar.write(minimalClassFile(internalName))
+            }
+        }
+        return bytes.toByteArray()
     }
 
     /** Bytes of an empty public class [internalName] (e.g. `com/vendor/sdk/Api`) extending Object, class file version 52. */

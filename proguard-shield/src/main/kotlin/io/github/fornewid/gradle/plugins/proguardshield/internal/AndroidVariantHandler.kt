@@ -6,6 +6,7 @@ import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldConfigurat
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPluginExtension
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.LibraryKeepRuleOrigins
+import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.LibraryPackagesTransform
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.ProGuardShieldOptimizationTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.RuleOrigins
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.GenerateInjectedRulesTask
@@ -17,6 +18,7 @@ import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.OutputFil
 import io.github.fornewid.gradle.plugins.proguardshield.internal.verify.ProGuardShieldVerifyParityTask
 import org.gradle.api.GradleException
 import org.gradle.api.Project
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE
 import org.gradle.api.tasks.TaskProvider
 
 /**
@@ -38,6 +40,7 @@ internal object AndroidVariantHandler {
         verifyParityTask: TaskProvider<*>,
     ) {
         val androidComponents = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java)
+        LibraryPackagesTransform.register(project.dependencies)
 
         val allVariantNames = mutableSetOf<String>()
         val declaredConfigNames = mutableSetOf<String>()
@@ -226,7 +229,10 @@ internal object AndroidVariantHandler {
             val projectDirPath = project.projectDir.absolutePath
 
             val libraryArtifacts = variant.runtimeConfiguration.incoming
-                .artifactView { componentFilter { RuleOrigins.of(it).isLibrary } }
+                .artifactView {
+                    componentFilter { RuleOrigins.of(it).isLibrary }
+                    attributes { attribute(ARTIFACT_TYPE_ATTRIBUTE, LibraryPackagesTransform.ARTIFACT_TYPE) }
+                }
                 .artifacts
             val appNamespace = variant.namespace
 

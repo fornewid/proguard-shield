@@ -45,12 +45,12 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     @get:Input
     abstract val libraryOrigins: MapProperty<String, RuleOrigin>
 
-    /** External library artifacts (AAR/JAR) on the variant's runtime classpath; their classes set each library's own packages. */
+    /** Package lists ([LibraryPackagesTransform]) of the external library artifacts on the variant's runtime classpath. */
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val libraryArtifacts: ConfigurableFileCollection
 
-    /** Library artifact absolute path → the dependency it belongs to. */
+    /** Package list absolute path → the dependency it belongs to. */
     @get:Input
     abstract val libraryArtifactOrigins: MapProperty<String, RuleOrigin>
 
