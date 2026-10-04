@@ -45,11 +45,11 @@ internal object LibraryRuleMatcher {
         }
     }
 
-    /** Keeps the matched classes themselves, or all fields or methods of them. */
+    /** Keeps the matched classes without naming members, or all fields or methods of them. */
     private fun keepsBroadly(spec: ClassSpecification): Boolean {
         val members = spec.members.orEmpty()
         return when (spec.directive) {
-            "keep", "keepnames" -> true
+            "keep", "keepnames" -> members.isEmpty() || members.any(::isAllMembers)
             "keepclassmembers", "keepclassmembernames" -> members.any(::isAllMembers)
             else -> members.all(::isAllMembers)
         }

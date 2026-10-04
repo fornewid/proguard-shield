@@ -111,6 +111,20 @@ class LibraryRuleMatcherTest {
     }
 
     @Test
+    fun `app classes of a type outside the library kept with only some members are not listed`() {
+        assertNotListed(
+            "-keep public class * extends androidx.coordinatorlayout.widget.CoordinatorLayout\$Behavior " +
+                "{ public <init>(android.content.Context, android.util.AttributeSet); public <init>(); }",
+            label = "com.google.android.material:material",
+        )
+        assertNotListed(
+            "-keep class * extends androidx.work.InputMerger { <init>(); }",
+            "-keep class * extends androidx.work.ListenableWorker { <init>(android.content.Context, androidx.work.WorkerParameters); }",
+            label = "com.unity3d.ads:unity-ads",
+        )
+    }
+
+    @Test
     fun `a named class without members or only some members are not listed`() {
         assertNotListed(
             "-keep class kotlin.Metadata",
