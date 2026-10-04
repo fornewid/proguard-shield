@@ -42,10 +42,18 @@ internal class LibraryPackages(byLibrary: Map<String, Set<String>>, private val 
     companion object {
         private val VERSIONED = Regex("^META-INF/versions/\\d+/")
 
-        /** Reads the packages of each artifact; [artifacts] maps an AAR or JAR to its `group:module`. */
+        /** Writes the packages of an AAR or JAR [artifact] to [list], one per line, for [read]. */
+        fun writeList(artifact: File, list: File) = list.writeText(packagesOf(artifact).sorted().joinToString("\n"))
+
+        /**
+         * Reads the lists [writeList] wrote; [artifacts] maps each list to its library label. An AAR or JAR the
+         * transform skipped (a variant with no single `artifactType`) is read directly.
+         */
         fun read(artifacts: Map<File, String>, appNamespace: String): LibraryPackages = LibraryPackages(
             artifacts.entries
-                .groupBy({ it.value }, { packagesOf(it.key) })
+                .groupBy({ it.value }) { (file, _) ->
+                    if (file.extension == "aar" || file.extension == "jar") packagesOf(file) else file.readLines()
+                }
                 .mapValues { (_, packages) -> packages.flatten().toSet() },
             appNamespace,
         )

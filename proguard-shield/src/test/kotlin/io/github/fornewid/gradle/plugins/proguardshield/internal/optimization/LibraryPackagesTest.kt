@@ -62,7 +62,12 @@ class LibraryPackagesTest {
     fun `read groups the packages of every artifact by library`() {
         val api = zip(dir.resolve("a.aar"), "classes.jar" to jar("com/bar/Api.class"))
         val extra = dir.resolve("b.jar").apply { writeBytes(jar("com/bar/extra/Util.class")) }
-        val read = LibraryPackages.read(mapOf(api to "com.bar:sdk", extra to "com.bar:sdk"), appNamespace = "com.example.app")
+        val noClasses = zip(dir.resolve("c.aar"), "proguard.txt" to ByteArray(0))
+        val lists = listOf(api, noClasses).associate { artifact ->
+            dir.resolve("${artifact.name}.packages").also { LibraryPackages.writeList(artifact, it) } to "com.bar:sdk"
+        }
+        // An artifact the transform skipped (a variant with no single artifactType) arrives as the archive itself.
+        val read = LibraryPackages.read(lists + (extra to "com.bar:sdk"), appNamespace = "com.example.app")
         assertThat(read.ownPackages("com.bar:sdk")).containsExactly("com.bar", "com.bar.extra")
     }
 
