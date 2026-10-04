@@ -22,8 +22,10 @@ import java.io.File
 
 /**
  * Optimization mode: finds the rules that block R8's shrinking, obfuscation or
- * optimization in the rule files R8 reads, and keeps them in a baseline with
- * their origin (`<variant>OptimizationBlockingRules.txt`, optionally `.tree.txt`).
+ * optimization in the rule files R8 reads, and keeps them in a baseline
+ * (`<variant>OptimizationBlockingRules.txt`, with their origins in `.tree.txt`
+ * when enabled). External libraries' rules that reach code outside the library
+ * are listed too (LibraryRuleMatcher).
  *
  * Reads R8's inputs through the same AGP-internal accessors as the fullFast
  * mode, without running R8 and without adding anything to R8's inputs.
@@ -42,6 +44,19 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     /** Library rule file absolute path → the dependency that ships it. */
     @get:Input
     abstract val libraryOrigins: MapProperty<String, RuleOrigin>
+
+    /** External library artifacts (AAR/JAR) on the variant's runtime classpath; their classes set each library's own packages. */
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val libraryArtifacts: ConfigurableFileCollection
+
+    /** Library artifact absolute path → the dependency it belongs to. */
+    @get:Input
+    abstract val libraryArtifactOrigins: MapProperty<String, RuleOrigin>
+
+    /** The app's namespace: a library rule that reaches it reaches the app's code. */
+    @get:Input
+    abstract val appNamespace: Property<String>
 
     @get:Input
     abstract val configurationName: Property<String>
@@ -77,6 +92,9 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
         val configName = configurationName.get()
         val projectDir = File(projectDirPath.get())
         val origins = libraryOrigins.get()
+        val packages by lazy {
+            LibraryPackages.read(libraryArtifactOrigins.get().entries.associate { File(it.key) to it.value.label }, appNamespace.get())
+        }
 
         // Every output below is sorted or compared as a set, so file order does not matter.
         val rules = ruleInputs.files
@@ -84,7 +102,10 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
             .flatMap { file ->
                 val origin = RuleOrigins.resolve(file, origins, projectDir, path)
                 RuleNormalizer.normalizeUnits(file.readText())
-                    .filter { OptimizationBlockingRuleMatcher.matches(it) }
+                    .filter { unit ->
+                        OptimizationBlockingRuleMatcher.matches(unit) ||
+                            (origin.isLibrary && LibraryRuleMatcher.matches(unit, origin.label, packages))
+                    }
                     .map { BlockingRule(it.joinToString("\n"), origin) }
             }
 
@@ -96,7 +117,7 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
                 OptimizationBlockingRuleReport.diffTree(it, rules)
             }
         } else {
-            RuleChanges.NONE
+            RuleChanges.none()
         }
         if (listChanges.isEmpty && treeChanges.isEmpty) return
 
@@ -106,7 +127,6 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
                 configurationName = configName,
                 list = listChanges,
                 tree = treeChanges,
-                rules = rules,
                 rebaselineMessage = Messaging.rebaselineMessage(
                     projectPath = path,
                     configurationName = configName,
@@ -118,13 +138,13 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     }
 
     /** Writes [content] when re-baselining or when [file] is missing; otherwise compares against it. */
-    private fun writeOrCompare(file: File, content: String, compare: (String) -> RuleChanges): RuleChanges {
+    private fun <T> writeOrCompare(file: File, content: String, compare: (String) -> RuleChanges<T>): RuleChanges<T> {
         if (shouldBaseline.get() || !file.exists()) {
             file.writeText(content)
             logger.lifecycle(
                 RuleDiffResult.BaselineCreated(projectPath.get(), configurationName.get(), file).format(withColor = true),
             )
-            return RuleChanges.NONE
+            return RuleChanges.none()
         }
         return compare(file.readText())
     }

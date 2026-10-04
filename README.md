@@ -17,7 +17,8 @@ disable obfuscation, keep every class, or otherwise weaken R8 — without
 touching your project's own `proguard-rules.pro`.
 
 **ProGuard Shield** keeps a baseline of the rules that block R8's optimization,
-names the library that adds each one, and fails `check` when a new one appears.
+can group them by the library that adds each one, and fails `check` when a new
+one appears.
 Optional modes also keep a baseline of the full merged rule set.
 
 ## Quick Start
@@ -72,12 +73,11 @@ does shows up as a failure.
 
 `check` reads R8's rule inputs without running R8 (it still runs the tasks that
 produce them, including compilation of the variant) and fails when an
-optimization-blocking rule appears or disappears, naming where it comes from:
+optimization-blocking rule appears or disappears:
 
 ```diff
 ProGuard Shield: optimization-blocking rules changed in :app (release).
 + -dontobfuscate
-    from com.example:analytics:2.3.0
 
 If this is intentional, re-baseline using ./gradlew :app:proguardShieldOptimizationBaselineRelease
 Or use ./gradlew proguardShieldOptimizationBaseline to re-baseline in entire project.
@@ -103,7 +103,7 @@ the reference — it uses only public AGP API and records exactly what R8 prints
 
 ## Optimization-blocking rules
 
-A rule is optimization-blocking when it is one of:
+The optimization mode lists these rules:
 
 - `-dontobfuscate`, `-dontshrink`, `-dontoptimize`
 - `-keepattributes` with no filter or a bare `*`
@@ -112,9 +112,27 @@ A rule is optimization-blocking when it is one of:
   `-keepclasseswithmembers`, only when the member specs are unrestricted
   (`*`, `<fields>`, `<methods>`, `<init>(...)`)
 
-Annotation- or inheritance-scoped rules (`-keep @androidx.annotation.Keep class * {*;}`,
-`-keepclasseswithmembers class * { native <methods>; }`, …) are normal library
-rules and never count.
+It also lists an external library's rule when it reaches code outside the
+library:
+
+- a whole package: `-keep class com.google.gson.** { *; }`
+- all fields or methods of a class:
+  `-keep class androidx.recyclerview.widget.RecyclerView { *; }`
+- every class that extends or implements a type outside the library:
+  `-keep class * extends android.app.Activity`
+- `-assumenosideeffects`, `-assumevalues`
+- an app-wide option such as `-ignorewarnings`, except `-dontwarn`, `-dontnote`
+  and `-keepattributes` with a filter
+
+A library's rule is not listed when it:
+
+- targets its own packages or another module of its Maven group, without
+  reaching the app's namespace
+- keeps app classes through its own types or an annotation:
+  `-keep class * extends androidx.room.RoomDatabase { void <init>(); }`
+- keeps a single named class without members, or lists only some members:
+  `-keep class kotlin.Metadata`, `{ <init>(); }`, `{ volatile <fields>; }`
+- has both `allowshrinking` and `allowobfuscation`
 
 With `tree = true`, `<variant>OptimizationBlockingRules.tree.txt` groups the
 rules by origin (versions omitted, so upgrading a library alone does not change it):
@@ -125,6 +143,14 @@ rules by origin (versions omitted, so upgrading a library alone does not change 
 
 [com.example:analytics]
 -dontobfuscate
+```
+
+and `check` failures show the changed rules under their origin:
+
+```diff
+ProGuard Shield: optimization-blocking rules changed in :app (release).
+  [com.example:analytics]
++ -dontobfuscate
 ```
 
 Origins are the module path for project dependencies and the module's own
@@ -177,11 +203,20 @@ proguardShield {
 | Option | Default | Description |
 |---|---|---|
 | `baselineDir` | `"proguardShield"` | Directory (relative to the module) where baseline files are written. |
-| `optimization` | `true` | Track optimization-blocking rules and their origins. On `check`. |
+| `optimization` | `true` | Track optimization-blocking rules (with their origins when `tree = true`). On `check`. |
 | `tree` | `false` | Also write the by-origin tree for the optimization mode. |
 | `fullFast` | `false` | Keep a full rule baseline read from R8's inputs without running R8. On `check`. |
 | `full` | `false` | Keep a full rule baseline as R8 prints it (runs R8, public AGP API only). Not on `check`. |
 | `forbiddenPatterns` | `[]` | Regex patterns that fail the full / fullFast modes whenever a matching rule appears. |
+
+## Migrating from 0.0.6
+
+- The optimization mode also lists an external library's rules that reach code
+  outside the library (see [Optimization-blocking rules](#optimization-blocking-rules)).
+  If your libraries ship such rules, `check` fails after the upgrade — run
+  `./gradlew proguardShieldOptimizationBaseline` and commit the result.
+- Failure messages show only the diff. With `tree = true`, the changed rules are
+  grouped by origin.
 
 ## Migrating from 0.0.5
 

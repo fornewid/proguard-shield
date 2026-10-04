@@ -150,6 +150,24 @@ internal class ProGuardShieldPluginAgp9Test {
         }
     }
 
+    @Test
+    fun `optimization lists a library keep of another package on AGP 9`() {
+        newProject(
+            pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG,
+            dependencies = "implementation 'com.vendor:sdk:1.0'",
+        ).use { project ->
+            project.publishLocalAar(
+                "com.vendor", "sdk", "1.0",
+                "-keep class com.google.gson.** { *; }\n-keep class com.vendor.sdk.** { *; }",
+                classes = listOf("com.vendor.sdk.Api"),
+            )
+
+            build(project, ":app:proguardShieldOptimizationBaseline")
+
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo("-keep class com.google.gson.** { *; }\n")
+        }
+    }
+
     private companion object {
         const val AGP_VERSION = "9.4.1"
 

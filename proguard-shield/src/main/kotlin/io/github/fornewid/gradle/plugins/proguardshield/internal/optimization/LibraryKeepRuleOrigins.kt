@@ -11,8 +11,7 @@ import org.gradle.api.provider.Provider
  */
 internal object LibraryKeepRuleOrigins {
 
-    fun of(task: Task): Provider<Map<String, RuleOrigin>> =
-        IgnoredLibraryKeepRules.libraryKeepRules(task, "so the origins of optimization-blocking rules cannot be resolved")
-            .resolvedArtifacts
-            .map { artifacts -> artifacts.associate { it.file.absolutePath to RuleOrigins.of(it.id.componentIdentifier) } }
+    fun of(task: Task): Provider<Map<String, RuleOrigin>> = RuleOrigins.byPath(
+        IgnoredLibraryKeepRules.libraryKeepRules(task, "so the origins of optimization-blocking rules cannot be resolved"),
+    )
 }

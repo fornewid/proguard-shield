@@ -5,12 +5,12 @@ import org.junit.jupiter.api.Test
 
 class OptimizationBlockingRuleReportTest {
 
-    private val app = RuleOrigin(":app", ":app (proguard-rules.pro)")
-    private val lib = RuleOrigin(":lib", ":lib")
-    private val sdk = RuleOrigin("com.example:sdk", "com.example:sdk:1.2.3")
-    private val other = RuleOrigin("com.other:lib", "com.other:lib:4.0")
-    private val agp = RuleOrigin("<agp>", "<agp> (proguard-android-optimize.txt)")
-    private val unresolved = RuleOrigin("<unresolved>", "/elsewhere/rules.pro")
+    private val app = RuleOrigin(":app")
+    private val lib = RuleOrigin(":lib")
+    private val sdk = RuleOrigin("com.example:sdk")
+    private val other = RuleOrigin("com.other:lib")
+    private val agp = RuleOrigin("<agp>")
+    private val unresolved = RuleOrigin("<unresolved>")
     private val keepAll = "-keep class ** {\n*;\n}"
 
     @Test
@@ -90,8 +90,8 @@ class OptimizationBlockingRuleReportTest {
         assertThat(OptimizationBlockingRuleReport.diffList(OptimizationBlockingRuleReport.renderList(rules), rules).isEmpty).isTrue()
         assertThat(OptimizationBlockingRuleReport.diffTree(baseline, rules)).isEqualTo(
             RuleChanges(
-                added = listOf("[com.other:lib] -dontobfuscate"),
-                removed = listOf("[com.example:sdk] -dontobfuscate"),
+                added = listOf(BlockingRule("-dontobfuscate", other)),
+                removed = listOf(BlockingRule("-dontobfuscate", sdk)),
             ),
         )
     }
@@ -103,26 +103,47 @@ class OptimizationBlockingRuleReportTest {
         assertThat(OptimizationBlockingRuleReport.diffTree(baseline, rules).isEmpty).isTrue()
     }
 
+    private fun message(list: RuleChanges<String>, tree: RuleChanges<BlockingRule>) =
+        OptimizationBlockingRuleReport.failureMessage(":app", "release", list, tree, "re-baseline hint")
+
     @Test
-    fun `failureMessage names every origin of an added rule`() {
-        val rules = listOf(BlockingRule("-dontobfuscate", sdk), BlockingRule("-dontobfuscate", other))
-        val message = OptimizationBlockingRuleReport.failureMessage(
-            projectPath = ":app",
-            configurationName = "release",
-            list = RuleChanges(added = listOf("-dontobfuscate"), removed = listOf("-keepattributes *")),
-            tree = RuleChanges(added = listOf("[com.other:lib] -dontobfuscate"), removed = emptyList()),
-            rules = rules,
-            rebaselineMessage = "re-baseline hint",
-        )
-        assertThat(message).isEqualTo(
+    fun `failureMessage shows only the rule diff without a tree diff`() {
+        val list = RuleChanges(added = listOf(keepAll), removed = listOf("-keepattributes *"))
+        assertThat(message(list, RuleChanges.none())).isEqualTo(
             """
             ProGuard Shield: optimization-blocking rules changed in :app (release).
-            + -dontobfuscate
-                from com.example:sdk:1.2.3, com.other:lib:4.0
+            + -keep class ** {
+            + *;
+            + }
             - -keepattributes *
 
-            Origins changed:
-            + [com.other:lib] -dontobfuscate
+            re-baseline hint
+            """.trimIndent(),
+        )
+    }
+
+    @Test
+    fun `failureMessage with a tree diff groups the changed rules under each origin`() {
+        val tree = RuleChanges(
+            added = listOf(
+                BlockingRule("-dontobfuscate", sdk),
+                BlockingRule("-ignorewarnings", sdk),
+                BlockingRule(keepAll, other),
+            ),
+            removed = listOf(BlockingRule("-keepattributes *", app)),
+        )
+        assertThat(message(RuleChanges.none(), tree)).isEqualTo(
+            """
+            ProGuard Shield: optimization-blocking rules changed in :app (release).
+              [:app]
+            - -keepattributes *
+              [com.example:sdk]
+            + -dontobfuscate
+            + -ignorewarnings
+              [com.other:lib]
+            + -keep class ** {
+            + *;
+            + }
 
             re-baseline hint
             """.trimIndent(),

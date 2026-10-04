@@ -1,6 +1,7 @@
 package io.github.fornewid.gradle.plugins.proguardshield.fixture
 
 import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import java.io.File
 import java.util.UUID
 import java.util.zip.ZipEntry
@@ -121,11 +122,18 @@ internal class AndroidProject(
     }
 
     /**
-     * Publishes a minimal AAR carrying [consumerRules] as `proguard.txt` into
-     * the project-local Maven repo, so it resolves as an external module
-     * (`ModuleComponentIdentifier`) without network access.
+     * Publishes a minimal AAR carrying [consumerRules] as `proguard.txt` and empty
+     * [classes] (e.g. `com.vendor.sdk.Api`) in `classes.jar` into the project-local
+     * Maven repo, so it resolves as an external module (`ModuleComponentIdentifier`)
+     * without network access.
      */
-    fun publishLocalAar(group: String, name: String, version: String, consumerRules: String) {
+    fun publishLocalAar(
+        group: String,
+        name: String,
+        version: String,
+        consumerRules: String,
+        classes: List<String> = emptyList(),
+    ) {
         val moduleDir = dir.resolve("$LOCAL_REPO/${group.replace('.', '/')}/$name/$version").apply { mkdirs() }
         moduleDir.resolve("$name-$version.pom").writeText(
             """
@@ -146,13 +154,47 @@ internal class AndroidProject(
                     .toByteArray(),
             )
             aar.putNextEntry(ZipEntry("classes.jar"))
-            val emptyJar = ByteArrayOutputStream()
-            ZipOutputStream(emptyJar).use { it.putNextEntry(ZipEntry("META-INF/")) }
-            aar.write(emptyJar.toByteArray())
+            val classesJar = ByteArrayOutputStream()
+            ZipOutputStream(classesJar).use { jar ->
+                jar.putNextEntry(ZipEntry("META-INF/"))
+                classes.forEach { className ->
+                    val internalName = className.replace('.', '/')
+                    jar.putNextEntry(ZipEntry("$internalName.class"))
+                    jar.write(minimalClassFile(internalName))
+                }
+            }
+            aar.write(classesJar.toByteArray())
             aar.putNextEntry(ZipEntry("R.txt"))
             aar.putNextEntry(ZipEntry("proguard.txt"))
             aar.write(consumerRules.toByteArray())
         }
+    }
+
+    /** Bytes of an empty public class [internalName] (e.g. `com/vendor/sdk/Api`) extending Object, class file version 52. */
+    private fun minimalClassFile(internalName: String): ByteArray {
+        val bytes = ByteArrayOutputStream()
+        DataOutputStream(bytes).use { out ->
+            out.writeInt(0xCAFEBABE.toInt())
+            out.writeShort(0) // minor version
+            out.writeShort(52) // major version (Java 8)
+            out.writeShort(5) // constant pool count: entries #1-#4
+            out.writeByte(7) // #1 Class -> #2
+            out.writeShort(2)
+            out.writeByte(1) // #2 Utf8 internalName
+            out.writeUTF(internalName)
+            out.writeByte(7) // #3 Class -> #4
+            out.writeShort(4)
+            out.writeByte(1) // #4 Utf8 java/lang/Object
+            out.writeUTF("java/lang/Object")
+            out.writeShort(0x0021) // ACC_PUBLIC | ACC_SUPER
+            out.writeShort(1) // this_class
+            out.writeShort(3) // super_class
+            out.writeShort(0) // interfaces
+            out.writeShort(0) // fields
+            out.writeShort(0) // methods
+            out.writeShort(0) // attributes
+        }
+        return bytes.toByteArray()
     }
 
     fun updateProguardRules(newContent: String) {
