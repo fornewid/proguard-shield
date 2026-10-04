@@ -21,7 +21,7 @@ internal object OptimizationBlockingRuleMatcher {
     private val KEEP_ATTRIBUTES = Regex("^-keepattributes(\\s+(.*))?$")
     private val KEEP_DIRECTIVE = Regex(
         "^-(keep|keepnames|keepclassmembers|keepclassmembernames|keepclasseswithmembers|keepclasseswithmembernames)" +
-            "((?:,[A-Za-z]+)*)\\s+(.+)$",
+            "((?:\\s*,\\s*[A-Za-z]+)*)\\s+(.+)$",
     )
     private val WHITESPACE = Regex("\\s+")
     private val CLASS_KEYWORDS = setOf("class", "interface", "enum", "@interface")
@@ -44,7 +44,7 @@ internal object OptimizationBlockingRuleMatcher {
     private fun keepsEveryClass(head: String, body: String?): Boolean {
         val match = KEEP_DIRECTIVE.find(head) ?: return false
         val directive = match.groupValues[1]
-        val modifiers = match.groupValues[2].split(',').filter { it.isNotEmpty() }.toSet()
+        val modifiers = match.groupValues[2].split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         if ("allowshrinking" in modifiers && "allowobfuscation" in modifiers) return false
 
         val tokens = match.groupValues[3].split(WHITESPACE)

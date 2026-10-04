@@ -217,6 +217,8 @@ proguardShield {
   `./gradlew proguardShieldOptimizationBaseline` and commit the result.
 - Failure messages show only the diff. With `tree = true`, the changed rules are
   grouped by origin.
+- Keep options with spaces around the commas (`-keep, allowobfuscation class * { *; }`)
+  are now read like the compact form (`-keep,allowobfuscation`).
 
 ## Migrating from 0.0.5
 
