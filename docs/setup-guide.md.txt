@@ -5,12 +5,11 @@ correctly install and configure the ProGuard Shield Gradle plugin.
 
 ## What is ProGuard Shield?
 
-A Gradle plugin that detects unintentional changes to Android's merged
-ProGuard/R8 rules. It saves a baseline of the fully-merged rule set and fails
-the build when something changes — catching unexpected rules added by
-dependency updates, AGP defaults shifts, or AAR consumer rules. An optional
-regex pattern list also fails the build when a known-dangerous rule (e.g.
-`-keep class **`, `-dontobfuscate`) appears in the merged input.
+A Gradle plugin that guards Android's merged ProGuard/R8 rules. By default it
+keeps a baseline of the rules that block R8's optimization (`-dontobfuscate`,
+keeps of every class, `-keepattributes *`, …), names the library that adds each
+one, and fails `check` when a new one appears. Optional modes keep a baseline
+of the full merged rule set.
 
 - Plugin ID: `io.github.fornewid.proguard-shield`
 - Maven Central: `io.github.fornewid.proguard-shield:proguard-shield`
@@ -60,102 +59,81 @@ Or directly:
     }
 
 **AI Agent**: The minimal setup is just `configuration("release")` with no
-additional properties. Do NOT add `forbiddenPatterns = ...` unless the user
-explicitly asks for forbidden-rule policy. Do NOT apply this plugin to a
+additional properties. Do NOT add mode flags or `forbiddenPatterns = ...` unless
+the user explicitly asks for them. Do NOT apply this plugin to a
 library module — it only works for `com.android.application` modules. The
 target variant must have `isMinifyEnabled = true`; a clear configuration-time
 error is thrown otherwise.
 
 ## Step 2: Generate a baseline
 
-    ./gradlew proguardShieldFullBaseline proguardShieldFullFastBaseline
+    ./gradlew proguardShieldOptimizationBaseline
 
-This writes two files into `proguardShield/`:
+This writes `proguardShield/releaseOptimizationBlockingRules.txt`. The file is
+empty when no rule blocks optimization; commit it anyway.
 
-- `releaseFullRules.txt` — full mode (what R8 emits via `-printconfiguration`)
-- `releaseFullFastRules.txt` — fullFast mode (same content, captured without running R8)
-
-Both files should be committed to version control. They are bit-identical when
-parity holds, but each mode needs its own committed baseline because daily CI
-checks the fullFast file and `proguardShieldVerifyParity` byte-compares the two.
-
-**AI Agent**: Always run both baseline tasks in one command during initial
-setup. After committing, the next step is detection, not running the full
-task again.
+**AI Agent**: Always run `proguardShieldOptimizationBaseline` first during
+initial setup and commit the file, even if it is empty.
 
 ## Step 3: Detect changes
 
     ./gradlew check
 
-The `check` lifecycle runs `proguardShieldFullFast{Variant}` — the fullFast
-mode, without invoking R8. If the merged rule set differs from
-`releaseFullFastRules.txt`, the build fails with a colored `+`/`-` diff and a
-re-baseline hint.
+`check` runs `proguardShieldOptimization{Variant}` without invoking R8. When an
+optimization-blocking rule appears or disappears, the build fails and names the
+library (and version) that adds it. To accept the change, re-run
+`./gradlew proguardShieldOptimizationBaseline`.
 
-To accept changes, re-run
-`./gradlew proguardShieldFullBaseline proguardShieldFullFastBaseline`.
+**AI Agent**: Before re-baselining, show the user which library added the rule
+and ask whether it is acceptable. Re-baselining accepts the rule.
 
-**AI Agent**: Do NOT recommend `./gradlew proguardShieldFull` as the default
-detection command. The `proguardShieldFull` task runs the full R8 pipeline and
-is reserved for explicit invocation; `check` already covers daily detection via
-fullFast.
-
-## Step 4 (after AGP upgrade): Verify parity
-
-    ./gradlew proguardShieldVerifyParity
-
-Regenerates both baselines and byte-compares them. The fullFast mode uses an
-AGP internal class via reflection, so an AGP version bump can break the
-contract; this task is the explicit gate that catches it.
-
-**AI Agent**: Recommend running `proguardShieldVerifyParity` after every AGP
-version change in the project's `libs.versions.toml` or `build.gradle.kts`.
-Do NOT run it on every CI build — the parity check regenerates both baselines
-and is unnecessary on builds where AGP hasn't moved.
-
-## Forbidden patterns (opt-in)
-
-A regex policy that fails the build when a matching rule appears in the merged
-input. Disabled by default — only add when the user explicitly asks for a
-policy:
+## Optional modes
 
     proguardShield {
         configuration("release") {
+            tree = true      // by-origin tree for the optimization mode
+            fullFast = true  // full rule baseline without running R8 (on check)
+            full = true      // full rule baseline as R8 prints it (runs R8, not on check)
+        }
+    }
+
+- `fullFast` writes `releaseFullFastRules.txt` (`proguardShieldFullFastBaseline`).
+- `full` writes `releaseFullRules.txt` (`proguardShieldFullBaseline`) and runs R8.
+- With both, `proguardShieldVerifyParity` byte-compares the two files. It is a
+  verification aid for plugin maintainers, not part of the everyday workflow.
+
+**AI Agent**: Enable these only when the user asks for a full rule baseline.
+
+## Forbidden patterns (opt-in, full / fullFast only)
+
+A regex policy that fails the full and fullFast modes when a matching rule
+appears in the merged input. Disabled by default — only add when the user
+explicitly asks for a policy:
+
+    proguardShield {
+        configuration("release") {
+            fullFast = true
             forbiddenPatterns = listOf(
                 "-keep\\s+class\\s+\\*\\*",
                 "-dontobfuscate",
-                "-dontshrink",
             )
         }
     }
 
-Patterns are Kotlin regexes matched against each rule unit's directive head
-(continuation lines joined; block bodies excluded). The check runs before
-drift detection — re-baselining cannot silence a forbidden match.
-
-**AI Agent**: Patterns are regexes. If the user provides a literal directive
-like `-dontobfuscate`, that works as-is (it has no regex metacharacters).
-For class-name patterns like `-keep class **`, escape the wildcards as
-`-keep\\s+class\\s+\\*\\*`. Do not add curated default patterns — the
-plugin intentionally ships an empty list; each project owns its own policy.
+**AI Agent**: Patterns are regexes. A literal directive like `-dontobfuscate`
+works as-is; escape class-name wildcards as `-keep\\s+class\\s+\\*\\*`. The
+optimization mode already detects the common optimization-blocking rules
+without any pattern.
 
 ## Default behavior
 
-- `check` runs only fullFast (`proguardShieldFullFast{Variant}`).
-- `proguardShieldFullBaseline` writes `<variant>FullRules.txt` and
-  `proguardShieldFullFastBaseline` writes `<variant>FullFastRules.txt`. Both
-  should be committed.
-- `proguardShieldFull` is registered but not on `check`.
-- `proguardShieldVerifyParity` is registered but not on `check`. Run it
-  manually after AGP upgrades.
-- `forbiddenPatterns` is `emptyList()`. No rule is forbidden by default.
+- Only the optimization mode is on. `check` runs `proguardShieldOptimization{Variant}`.
+- `proguardShieldOptimizationBaseline` writes `<variant>OptimizationBlockingRules.txt`.
+- `tree`, `fullFast`, `full` are `false`; `forbiddenPatterns` is empty.
+- Nothing is added to R8's inputs unless `full = true`.
 
 **AI Agent**: These defaults are already set. You MUST NOT include them in
-the configuration block. If the user asks "how do I make CI fast?", the
-answer is "it already is — `check` only runs fullFast." Note that fullFast
-skips R8 but still depends on the tasks producing R8's inputs,
-including compilation of the variant; it is cheapest in a CI job that already
-assembles that variant.
+the configuration block.
 
 ## Common pitfalls
 
@@ -169,13 +147,13 @@ assembles that variant.
 - **`isMinifyEnabled = false`**: the plugin requires the target variant to
   have minification enabled. The plugin throws a configuration-time error
   if not, naming the variant.
-- **Committing only one baseline**: both files must be committed. fullFast
-  checks against `releaseFullFastRules.txt`, and `proguardShieldVerifyParity`
-  needs both files to compare them.
-- **Upgrading from 0.0.4**: the tasks and files were renamed — accurate is now
-  full (`proguardShieldFull`, `releaseFullRules.txt`) and fast is now fullFast
-  (`proguardShieldFullFast`, `releaseFullFastRules.txt`). Rename the committed
-  files with `git mv`, or regenerate both baselines.
-- **AGP upgrade without re-verifying**: a fullFast mismatch after an AGP
-  bump is silent until a baseline regen surfaces it. Always run
-  `proguardShieldVerifyParity` after AGP changes.
+- **Not committing the empty baseline**: an empty
+  `releaseOptimizationBlockingRules.txt` is the expected state; commit it so a
+  newly added blocking rule fails `check`.
+- **Upgrading from 0.0.5**: `configuration("release")` now runs only the
+  optimization mode. Set `full = true` / `fullFast = true` to keep the full
+  rule baselines; until then `proguardShieldFull` / `proguardShieldFullFast`
+  pass without checking anything.
+- **Upgrading from 0.0.4**: rename `releaseRules.txt` → `releaseFullRules.txt`
+  and `releaseFastRules.txt` → `releaseFullFastRules.txt`, and set
+  `full = true` / `fullFast = true` to keep using them.

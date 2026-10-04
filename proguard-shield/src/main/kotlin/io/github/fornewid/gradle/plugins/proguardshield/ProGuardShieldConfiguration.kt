@@ -19,6 +19,24 @@ public open class ProGuardShieldConfiguration @Inject constructor(
     public override fun getName(): String = configurationName
 
     /**
+     * Track rules that block R8's shrinking, obfuscation or optimization
+     * (`-dontobfuscate`, keeps of every class, `-keepattributes *`, …) together
+     * with the dependency or module that adds them
+     * (`<variant>OptimizationBlockingRules.txt`). Runs as part of `check`.
+     * Enabled by default.
+     */
+    @get:Input
+    public var optimization: Boolean = true
+
+    /**
+     * Also write `<variant>OptimizationBlockingRules.tree.txt`, which groups the
+     * optimization-blocking rules by the dependency or module that adds them.
+     * Used only when [optimization] is enabled. Disabled by default.
+     */
+    @get:Input
+    public var tree: Boolean = false
+
+    /**
      * Regex patterns that must not appear anywhere in the merged R8 rule
      * input. Empty by default — the plugin enforces no policy unless the
      * project author declares one.
@@ -38,8 +56,25 @@ public open class ProGuardShieldConfiguration @Inject constructor(
      *
      * Both the full (`proguardShieldFull`) and fullFast (`proguardShieldFullFast`)
      * modes run the same check on the same normalized inputs, so the parity
-     * invariant is preserved.
+     * invariant is preserved. The optimization mode does not use these patterns.
      */
     @get:Input
     public var forbiddenPatterns: List<String> = emptyList()
+
+    /**
+     * Keep a baseline of the full merged rule set by reading R8's inputs
+     * without running R8 (`<variant>FullFastRules.txt`). Runs as part of
+     * `check` when enabled. Relies on AGP internal API. Disabled by default.
+     */
+    @get:Input
+    public var fullFast: Boolean = false
+
+    /**
+     * Keep a baseline of the full merged rule set exactly as R8 prints it, by
+     * running R8 (`<variant>FullRules.txt`). Uses only public AGP API and is
+     * the reference the other modes are checked against. Not part of `check`;
+     * run `proguardShieldFull` explicitly. Disabled by default.
+     */
+    @get:Input
+    public var full: Boolean = false
 }

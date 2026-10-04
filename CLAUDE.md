@@ -4,22 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Status
 
-**0.0.x evaluation series.** Repo structure mirrors the sibling project [`manifest-shield`](https://github.com/fornewid/manifest-shield). Two implementations of the same feature ship side-by-side; users run both on real projects so we can confirm they stay bit-identical before dropping one.
+**0.0.x evaluation series.** Repo structure mirrors the sibling project [`manifest-shield`](https://github.com/fornewid/manifest-shield). Each `proguardShield { configuration("<variant>") { … } }` enables modes with flags:
 
-- **full** (formerly accurate) — `proguardShieldFull{Variant}`, `ProGuardShieldListTask`: runs R8 with `-printconfiguration`. Uses only public AGP API — this invariant must not change. Slow.
-- **fullFast** (formerly fast) — `proguardShieldFullFast{Variant}`, `ProGuardShieldFastListTask`: reads `ProguardConfigurableTask` rule-file getters via reflection (`R8TaskInputExtractor`, `IgnoredLibraryKeepRules`), skips R8 entirely. Much faster but depends on AGP internal class names.
+- **optimization** (`optimization`, default `true`) — `proguardShieldOptimization{Variant}` / `proguardShieldOptimizationBaseline{Variant}`, `internal.optimization.ProGuardShieldOptimizationTask`. Reads R8's rule inputs like fullFast (no R8 run), keeps the optimization-blocking rules (`OptimizationBlockingRuleMatcher`) in `<variant>OptimizationBlockingRules.txt`, and with `tree = true` groups them by origin (`RuleOrigins`, `LibraryKeepRuleOrigins` via AGP's `getLibraryKeepRules()`) in `.tree.txt`. On `check`.
+- **fullFast** (`fullFast`, default `false`) — `proguardShieldFullFast{Variant}`, `ProGuardShieldFastListTask`. Full rule baseline `<variant>FullFastRules.txt` from `ProguardConfigurableTask` getters via reflection (`R8TaskInputExtractor`, `IgnoredLibraryKeepRules`). On `check`.
+- **full** (`full`, default `false`) — `proguardShieldFull{Variant}`, `ProGuardShieldListTask`. Runs R8 with an injected `-printconfiguration` (only for variants that enable full) and keeps `<variant>FullRules.txt`. **Public AGP API only — this invariant must not change.** Not on `check`.
 
-Both modes produce the **same baseline** when parity holds (`RuleNormalizer` sorts by rule unit so order doesn't matter). Baseline files: `<baselineDir>/<variant>FullRules.txt` (full) + `<baselineDir>/<variant>FullFastRules.txt` (fullFast). Commit both.
+`forbiddenPatterns` (`internal.forbidden.ForbiddenPatternChecker`) runs only in full and fullFast, on the same normalized input, before the drift comparison. Empty by default.
 
-Lifecycle:
-- `./gradlew :app:proguardShieldFullBaseline :app:proguardShieldFullFastBaseline` — first install / re-baseline. There is no combined baseline aggregate.
-- `./gradlew :app:proguardShieldVerifyParity` — first install + every AGP upgrade. Regenerates both baselines and byte-compares them; fails if they diverge.
-- `./gradlew check` — daily CI. Runs only `proguardShieldFullFast{Variant}`; full is reserved for explicit invocation so CI does not pay the R8 cost on every build.
+**Parity (AI / maintainer verification):** `proguardShieldVerifyParity{Variant}` exists when both full and fullFast are enabled; it regenerates both baselines and byte-compares them. Run it on the sample (which enables every mode) and run the gradleTest parity tests whenever you change rule-input extraction (`R8TaskInputExtractor`, `IgnoredLibraryKeepRules`, `LibraryKeepRuleOrigins`) or the supported AGP versions:
 
-Both list tasks run a shared `internal.forbidden.ForbiddenPatternChecker` over the same normalized rule input before the drift comparison. The pattern set is supplied per variant via `proguardShield.configuration("release").forbiddenPatterns`. Empty by default — the plugin ships no policy. Running both checks under both modes is what keeps the `proguardShieldVerifyParity` invariant honest.
-
-Remaining roadmap:
-- Pick one path and remove the other based on real-project user feedback.
+```bash
+ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :sample:app:proguardShieldVerifyParity
+ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :proguard-shield:gradleTest
+```
 
 ## Build & Test Commands
 
@@ -57,7 +55,7 @@ The repo is a Gradle **included build**: the root project pulls in the plugin mo
 
 ### Plugin Entry
 
-`ProGuardShieldPlugin` (package `io.github.fornewid.gradle.plugins.proguardshield`) registers five aggregate tasks (`proguardShieldFull`, `proguardShieldFullBaseline`, `proguardShieldFullFast`, `proguardShieldFullFastBaseline`, `proguardShieldVerifyParity`) and delegates per-variant task registration to `internal.AndroidVariantHandler`, which hooks AGP's `onVariants`. Each aggregate is mode-specific; there is no combined aggregate (`proguardShield` / `proguardShieldBaseline` are intentionally unused in 0.0.5). `proguardShieldVerifyParity{Variant}` regenerates both baselines and byte-compares them via `internal.verify.ProGuardShieldVerifyParityTask`. `check` is wired to `proguardShieldFullFast` only.
+`ProGuardShieldPlugin` (package `io.github.fornewid.gradle.plugins.proguardshield`) registers seven aggregate tasks — `proguardShieldOptimization` / `proguardShieldOptimizationBaseline`, `proguardShieldFull` / `proguardShieldFullBaseline`, `proguardShieldFullFast` / `proguardShieldFullFastBaseline`, `proguardShieldVerifyParity` — and delegates per-variant registration to `internal.AndroidVariantHandler`, which hooks AGP's `onVariants` and registers only the modes a configuration enables. There is no cross-mode aggregate (`proguardShield` / `proguardShieldBaseline` are intentionally unused). Every aggregate validates the configuration names. `check` depends on `proguardShieldOptimization` and `proguardShieldFullFast`.
 
 ### References
 

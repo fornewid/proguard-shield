@@ -29,5 +29,11 @@ dependencies {
 }
 
 proguardShield {
-    configuration("release")
+    // The sample enables every mode so maintainers and AI agents can run
+    // proguardShieldVerifyParity against real R8 output.
+    configuration("release") {
+        tree = true
+        fullFast = true
+        full = true
+    }
 }

@@ -23,6 +23,11 @@ internal object R8TaskInputExtractor {
 
     private const val BASE_CLASS = "com.android.build.gradle.internal.tasks.ProguardConfigurableTask"
 
+    /** Shared by every mode that reads R8's inputs through AGP internals (optimization, fullFast). */
+    const val FALLBACK_HINT: String =
+        "Use the full mode instead (full = true, with optimization = false and fullFast = false), " +
+            "which runs R8 and uses only public AGP API."
+
     private val REQUIRED_METHOD_NAMES = listOf(
         "getConfigurationFiles",
         "getGeneratedProguardFile",
@@ -39,15 +44,14 @@ internal object R8TaskInputExtractor {
         val baseClass = runCatching { task.javaClass.classLoader.loadClass(BASE_CLASS) }
             .getOrElse {
                 throw GradleException(
-                    "ProGuard Shield fullFast mode: AGP internal class '$BASE_CLASS' not found. " +
-                        "This AGP version is unsupported; " +
-                        "use the 'proguardShieldFull' task instead of 'proguardShieldFullFast'.",
+                    "ProGuard Shield: AGP internal class '$BASE_CLASS' not found, so R8's rule inputs " +
+                        "cannot be read in this AGP version. $FALLBACK_HINT",
                 )
             }
 
         if (!baseClass.isInstance(task)) {
             throw GradleException(
-                "ProGuard Shield fullFast mode: ${task.path} is not a ProguardConfigurableTask " +
+                "ProGuard Shield: ${task.path} is not a ProguardConfigurableTask " +
                     "(got ${task::class.qualifiedName}). Expected AGP's R8 task.",
             )
         }
@@ -62,17 +66,15 @@ internal object R8TaskInputExtractor {
                 .getOrElse {
                     if (methodName in OPTIONAL_METHOD_NAMES) return@mapNotNull null
                     throw GradleException(
-                        "ProGuard Shield fullFast mode: method '$methodName' not found on " +
-                            "$BASE_CLASS in this AGP version. Switch to the " +
-                            "'proguardShieldFull' task instead of 'proguardShieldFullFast'.",
+                        "ProGuard Shield: method '$methodName' not found on " +
+                            "$BASE_CLASS in this AGP version. $FALLBACK_HINT",
                     )
                 }
             val value = method.invoke(target)
             value as? FileCollection
                 ?: throw GradleException(
-                    "ProGuard Shield fullFast mode: $methodName returned an unsupported type " +
-                        "(${value?.let { it::class.qualifiedName }}) in this AGP version. " +
-                        "Switch to the 'proguardShieldFull' task instead of 'proguardShieldFullFast'.",
+                    "ProGuard Shield: $methodName returned an unsupported type " +
+                        "(${value?.let { it::class.qualifiedName }}) in this AGP version. $FALLBACK_HINT",
                 )
         }
 
