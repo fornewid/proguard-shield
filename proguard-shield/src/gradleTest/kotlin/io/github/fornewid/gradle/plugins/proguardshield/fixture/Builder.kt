@@ -24,5 +24,6 @@ internal object Builder {
         // Plugin JAR is injected via buildscript classpath in the test project.
         withProjectDir(project.dir)
         withArguments(args.toList() + "-s")
+        project.gradleVersion?.let { withGradleVersion(it) }
     }
 }
