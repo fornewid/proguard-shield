@@ -299,8 +299,8 @@ internal object AndroidVariantHandler {
                 // reflects the current build, not whatever was committed earlier.
                 dependsOn("proguardShieldFullBaseline$capitalizedName")
                 dependsOn("proguardShieldFullFastBaseline$capitalizedName")
-                accurateBaseline.set(baselineDirectory.file("$fullFilePrefix.txt"))
-                fastBaseline.set(baselineDirectory.file("$fullFastFilePrefix.txt"))
+                fullBaseline.set(baselineDirectory.file("$fullFilePrefix.txt"))
+                fullFastBaseline.set(baselineDirectory.file("$fullFastFilePrefix.txt"))
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)
             }
