@@ -30,11 +30,11 @@ internal abstract class ProGuardShieldVerifyParityTask : DefaultTask() {
 
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
-    abstract val accurateBaseline: RegularFileProperty
+    abstract val fullBaseline: RegularFileProperty
 
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
-    abstract val fastBaseline: RegularFileProperty
+    abstract val fullFastBaseline: RegularFileProperty
 
     @get:Input
     abstract val configurationName: Property<String>
@@ -48,8 +48,8 @@ internal abstract class ProGuardShieldVerifyParityTask : DefaultTask() {
 
     @TaskAction
     fun execute() {
-        val accurate = accurateBaseline.get().asFile
-        val fast = fastBaseline.get().asFile
+        val accurate = fullBaseline.get().asFile
+        val fast = fullFastBaseline.get().asFile
         val accurateText = accurate.readText()
         val fastText = fast.readText()
 
