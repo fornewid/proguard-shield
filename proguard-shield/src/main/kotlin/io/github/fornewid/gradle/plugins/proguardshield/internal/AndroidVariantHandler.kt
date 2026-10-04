@@ -232,6 +232,13 @@ internal object AndroidVariantHandler {
         // aggregates stay accurate-only / fast-only respectively.
         baselineTask.configure { dependsOn(fastConfigBaselineTask) }
 
+        // Guard and baseline tasks share `baselineDir` as an output. When both
+        // run in one build, the guard must compare against the committed
+        // baseline before it is regenerated. This also orders the parity task
+        // (which reads the baselines) after the guards.
+        perConfigBaselineTask.configure { mustRunAfter(perConfigGuardTask) }
+        fastConfigBaselineTask.configure { mustRunAfter(fastConfigGuardTask) }
+
         // ---- Parity verification (regenerate both baselines, then byte-compare) ----
         val accurateBaselinePath = baselineDirectory.file("$filePrefix.txt")
         val fastBaselinePath = baselineDirectory.file("$fastFilePrefix.txt")

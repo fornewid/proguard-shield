@@ -126,6 +126,28 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
+    fun `verifyParity runs in the same build as the guard tasks`() {
+        AndroidProject().use { project ->
+            build(project, ":app:proguardShieldBaseline")
+
+            val result = build(
+                project,
+                ":app:proguardShield",
+                ":app:proguardShieldFast",
+                ":app:proguardShieldVerifyParity",
+            )
+            assertThat(result.output).contains("parity holds")
+            // Guards must check the committed baselines before the parity
+            // task regenerates them.
+            val order = result.tasks.map { it.path }
+            assertThat(order.indexOf(":app:proguardShieldRelease"))
+                .isLessThan(order.indexOf(":app:proguardShieldBaselineRelease"))
+            assertThat(order.indexOf(":app:proguardShieldFastRelease"))
+                .isLessThan(order.indexOf(":app:proguardShieldFastBaselineRelease"))
+        }
+    }
+
+    @Test
     fun `verifyParity fails when the two baselines diverge`() {
         AndroidProject().use { project ->
             // Generate both baselines, then mutate the fast one out-of-band
