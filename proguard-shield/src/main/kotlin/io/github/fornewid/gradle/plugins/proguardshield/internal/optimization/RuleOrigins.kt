@@ -4,6 +4,7 @@ import org.gradle.api.artifacts.component.ComponentIdentifier
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import java.io.File
+import java.io.Serializable
 
 /**
  * Where a rule file comes from.
@@ -11,7 +12,7 @@ import java.io.File
  * @property label version-less name written to baselines, e.g. `com.example:sdk`, `:lib`, `<agp>`
  * @property detail name shown in failure messages, e.g. `com.example:sdk:1.2.3`, `:app (proguard-rules.pro)`
  */
-internal data class RuleOrigin(val label: String, val detail: String)
+internal data class RuleOrigin(val label: String, val detail: String) : Serializable
 
 internal object RuleOrigins {
 
@@ -28,19 +29,17 @@ internal object RuleOrigins {
 
     /**
      * Origin of a rule [file] R8 reads. Library files are looked up by absolute
-     * path in [libraryLabels] / [libraryDetails]; the AGP default file and files
-     * inside [projectDir] are recognized by location. The AGP default file lives
-     * under the module's build directory, so it is checked first.
+     * path in [libraryOrigins]; the AGP default file and files inside
+     * [projectDir] are recognized by location. The AGP default file lives under
+     * the module's build directory, so it is checked first.
      */
     fun resolve(
         file: File,
-        libraryLabels: Map<String, String>,
-        libraryDetails: Map<String, String>,
+        libraryOrigins: Map<String, RuleOrigin>,
         projectDir: File,
         projectPath: String,
     ): RuleOrigin {
-        val key = file.absolutePath
-        libraryLabels[key]?.let { return RuleOrigin(it, libraryDetails[key] ?: it) }
+        libraryOrigins[file.absolutePath]?.let { return it }
         if ("/default_proguard_files/" in file.absoluteFile.invariantSeparatorsPath) {
             return RuleOrigin(AGP, "$AGP (${file.name})")
         }

@@ -39,13 +39,9 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val ruleInputs: ConfigurableFileCollection
 
-    /** Library rule file absolute path → version-less origin, e.g. `com.example:sdk`. */
+    /** Library rule file absolute path → the dependency that ships it. */
     @get:Input
-    abstract val libraryLabels: MapProperty<String, String>
-
-    /** Library rule file absolute path → origin with version, e.g. `com.example:sdk:1.2.3`. */
-    @get:Input
-    abstract val libraryDetails: MapProperty<String, String>
+    abstract val libraryOrigins: MapProperty<String, RuleOrigin>
 
     @get:Input
     abstract val configurationName: Property<String>
@@ -63,12 +59,10 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     @get:Input
     abstract val pluginVersion: Property<String>
 
-    @get:Input
-    abstract val tree: Property<Boolean>
-
     @get:OutputFile
     abstract val listFile: RegularFileProperty
 
+    /** Set only when the configuration enables `tree`. */
     @get:Optional
     @get:OutputFile
     abstract val treeFile: RegularFileProperty
@@ -82,14 +76,13 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
         val path = projectPath.get()
         val configName = configurationName.get()
         val projectDir = File(projectDirPath.get())
-        val labels = libraryLabels.get()
-        val details = libraryDetails.get()
+        val origins = libraryOrigins.get()
 
+        // Every output below is sorted or compared as a set, so file order does not matter.
         val rules = ruleInputs.files
             .filter { it.isFile }
-            .sortedBy { it.absoluteFile.invariantSeparatorsPath }
             .flatMap { file ->
-                val origin = RuleOrigins.resolve(file, labels, details, projectDir, path)
+                val origin = RuleOrigins.resolve(file, origins, projectDir, path)
                 RuleNormalizer.normalizeUnits(file.readText())
                     .filter { OptimizationBlockingRuleMatcher.matches(it) }
                     .map { BlockingRule(it.joinToString("\n"), origin) }
@@ -98,7 +91,7 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
         val listChanges = writeOrCompare(listFile.get().asFile, OptimizationBlockingRuleReport.renderList(rules)) {
             OptimizationBlockingRuleReport.diffList(it, rules)
         }
-        val treeChanges = if (tree.get()) {
+        val treeChanges = if (treeFile.isPresent) {
             writeOrCompare(treeFile.get().asFile, OptimizationBlockingRuleReport.renderTree(rules)) {
                 OptimizationBlockingRuleReport.diffTree(it, rules)
             }

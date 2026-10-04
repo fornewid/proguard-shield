@@ -202,12 +202,14 @@ internal object AndroidVariantHandler {
         // configurationFiles references the user-selected default file under
         // build/intermediates/default_proguard_files/, which only exists after
         // extractProguardFiles runs. AAPT2-generated rules similarly require
-        // their merge task. These task names are AGP-internal — if they ever
+        // their merge task, and with full enabled the injected `.pro` is one of
+        // R8's inputs too. These task names are AGP-internal — if they ever
         // change, Gradle surfaces a "Task not found" error at execution time
-        // and users can fall back to the full `proguardShieldFull` task.
-        val fastExtraDepNames = listOf(
+        // and users can fall back to the full mode.
+        val fastExtraDepNames = listOfNotNull(
             "extractProguardFiles",
             "merge${capitalizedName}GeneratedProguardFiles",
+            injectTaskName.takeIf { config.full },
         )
 
         val rootDir = project.rootDir.absolutePath
@@ -221,18 +223,13 @@ internal object AndroidVariantHandler {
             fun ProGuardShieldOptimizationTask.configureOptimization(baseline: Boolean) {
                 this.ruleInputs.from(ruleInputs)
                 fastExtraDepNames.forEach { dependsOn(it) }
-                // With full enabled, the injected `.pro` is one of R8's inputs.
-                if (config.full) dependsOn(injectTaskName)
                 // Runs only when this task is realized: maps each library rule file to its dependency.
-                val minifyTask = project.tasks.named(minifyTaskName).get()
-                libraryLabels.set(LibraryKeepRuleOrigins.labels(minifyTask))
-                libraryDetails.set(LibraryKeepRuleOrigins.details(minifyTask))
+                libraryOrigins.set(LibraryKeepRuleOrigins.of(project.tasks.named(minifyTaskName).get()))
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)
                 this.projectDirPath.set(projectDirPath)
                 shouldBaseline.set(baseline)
                 pluginVersion.set(ProGuardShieldPlugin.VERSION)
-                tree.set(config.tree)
                 this.listFile.set(listFile)
                 if (config.tree) this.treeFile.set(treeFile)
             }
@@ -259,8 +256,6 @@ internal object AndroidVariantHandler {
             ) {
                 this.ruleInputs.from(ruleInputs)
                 fastExtraDepNames.forEach { dependsOn(it) }
-                // With full enabled, the injected `.pro` is one of R8's inputs.
-                if (config.full) dependsOn(injectTaskName)
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)
                 shouldBaseline.set(false)
@@ -278,7 +273,6 @@ internal object AndroidVariantHandler {
             ) {
                 this.ruleInputs.from(ruleInputs)
                 fastExtraDepNames.forEach { dependsOn(it) }
-                if (config.full) dependsOn(injectTaskName)
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)
                 shouldBaseline.set(true)

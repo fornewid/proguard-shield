@@ -37,16 +37,7 @@ internal object IgnoredLibraryKeepRules {
         val (ignoreFrom, ignoreAll) = readIgnoreConfig(task) ?: return ruleFiles
         if (ignoreFrom.isEmpty() && !ignoreAll) return ruleFiles
 
-        val libraryKeepRules = runCatching {
-            task.javaClass.getMethod("getLibraryKeepRules").invoke(task) as ArtifactCollection
-        }.getOrElse {
-            throw GradleException(
-                "ProGuard Shield fullFast mode: keep-rule ignore DSL is set on ${task.path} but " +
-                    "'getLibraryKeepRules' could not be read in this AGP version. " +
-                    "Switch to the 'proguardShieldFull' task instead of 'proguardShieldFullFast'.",
-                it,
-            )
-        }
+        val libraryKeepRules = libraryKeepRules(task, "so the keep-rule ignore DSL cannot be applied")
         val ignoredFiles = libraryKeepRules.resolvedArtifacts.map { artifacts ->
             artifacts
                 .filter { isIgnored(it.id.componentIdentifier, ignoreFrom, ignoreAll) }
@@ -54,6 +45,21 @@ internal object IgnoredLibraryKeepRules {
         }
         return ruleFiles.minus(objects.fileCollection().from(ignoredFiles))
     }
+
+    /**
+     * AGP's `ProguardConfigurableTask.getLibraryKeepRules()` (present from AGP 8.0
+     * through 9.4): each library's keep-rule file with the dependency it comes from.
+     * Fails, saying what cannot be done ([consequence]), when this AGP version lacks it.
+     */
+    fun libraryKeepRules(task: Task, consequence: String): ArtifactCollection =
+        runCatching { task.javaClass.getMethod("getLibraryKeepRules").invoke(task) as ArtifactCollection }
+            .getOrElse {
+                throw GradleException(
+                    "ProGuard Shield: 'getLibraryKeepRules' could not be read on ${task.path} in this AGP " +
+                        "version, $consequence. ${R8TaskInputExtractor.FALLBACK_HINT}",
+                    it,
+                )
+            }
 
     /**
      * AGP's match: only external modules are eligible; `ignoreAll` takes all

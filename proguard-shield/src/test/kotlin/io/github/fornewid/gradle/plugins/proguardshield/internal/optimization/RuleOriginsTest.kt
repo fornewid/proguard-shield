@@ -33,36 +33,31 @@ class RuleOriginsTest {
     }
 
     @Test
-    fun `library files are resolved from the library maps first`() {
+    fun `library files are resolved from the library map first`() {
         val file = File("/gradle/transforms/abc/proguard.txt")
-        val origin = RuleOrigins.resolve(
-            file,
-            mapOf(file.absolutePath to "com.example:sdk"),
-            mapOf(file.absolutePath to "com.example:sdk:1.2.3"),
-            projectDir,
-            ":app",
-        )
-        assertThat(origin).isEqualTo(RuleOrigin("com.example:sdk", "com.example:sdk:1.2.3"))
+        val sdk = RuleOrigin("com.example:sdk", "com.example:sdk:1.2.3")
+        val origin = RuleOrigins.resolve(file, mapOf(file.absolutePath to sdk), projectDir, ":app")
+        assertThat(origin).isEqualTo(sdk)
     }
 
     @Test
     fun `AGP default file wins over the module directory it lives in`() {
         val file = File("/work/app/build/intermediates/default_proguard_files/global/proguard-android-optimize.txt-8.8.0")
-        assertThat(RuleOrigins.resolve(file, emptyMap(), emptyMap(), projectDir, ":app"))
+        assertThat(RuleOrigins.resolve(file, emptyMap(), projectDir, ":app"))
             .isEqualTo(RuleOrigin("<agp>", "<agp> (proguard-android-optimize.txt-8.8.0)"))
     }
 
     @Test
     fun `files inside the module are attributed to the module`() {
         val file = File("/work/app/proguard-rules.pro")
-        assertThat(RuleOrigins.resolve(file, emptyMap(), emptyMap(), projectDir, ":app"))
+        assertThat(RuleOrigins.resolve(file, emptyMap(), projectDir, ":app"))
             .isEqualTo(RuleOrigin(":app", ":app (proguard-rules.pro)"))
     }
 
     @Test
     fun `anything else is unresolved with its path`() {
         val file = File("/elsewhere/rules.pro")
-        assertThat(RuleOrigins.resolve(file, emptyMap(), emptyMap(), projectDir, ":app"))
+        assertThat(RuleOrigins.resolve(file, emptyMap(), projectDir, ":app"))
             .isEqualTo(RuleOrigin("<unresolved>", file.absolutePath))
     }
 

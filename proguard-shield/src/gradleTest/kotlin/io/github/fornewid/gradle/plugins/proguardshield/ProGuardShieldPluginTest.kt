@@ -87,7 +87,7 @@ internal class ProGuardShieldPluginTest {
             // --dry-run inspects the task graph without executing tasks, so
             // we can confirm what `check` would trigger without paying the
             // lint / unit-test cost the throwaway fixture isn't set up for.
-            val scheduledTasks = scheduledTasks(build(project, ":app:check", "--dry-run", "--console=plain").output)
+            val scheduledTasks = checkTasks(project)
             assertThat(scheduledTasks).contains(":app:proguardShieldFullFastRelease")
             // Full stays out of `check` so CI does not pay the R8 cost on
             // every build.
@@ -404,20 +404,7 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
-    fun `fullFast alone runs in check while full alone does not`() {
-        AndroidProject(
-            pluginConfig = """
-                proguardShield {
-                    configuration("release") {
-                        fullFast = true
-                    }
-                }
-            """.trimIndent(),
-        ).use { project ->
-            val scheduled = scheduledTasks(build(project, ":app:check", "--dry-run", "--console=plain").output)
-            assertThat(scheduled).contains(":app:proguardShieldFullFastRelease")
-        }
-
+    fun `full alone is not on check and has no parity task`() {
         AndroidProject(
             pluginConfig = """
                 proguardShield {
@@ -427,31 +414,17 @@ internal class ProGuardShieldPluginTest {
                 }
             """.trimIndent(),
         ).use { project ->
-            val scheduled = scheduledTasks(build(project, ":app:check", "--dry-run", "--console=plain").output)
+            val scheduled = checkTasks(project)
             assertThat(scheduled).doesNotContain(":app:proguardShieldFullRelease")
             assertThat(scheduled).doesNotContain(":app:minifyReleaseWithR8")
-            // Parity needs both full and fullFast.
             assertThat(build(project, ":app:tasks", "--all").output).doesNotContain("proguardShieldVerifyParityRelease")
-        }
-    }
-
-    @Test
-    fun `optimization is the default mode and neither runs nor changes R8`() {
-        AndroidProject(pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG).use { project ->
-            val result = build(project, ":app:proguardShieldOptimizationBaseline")
-
-            assertThat(result.task(":app:minifyReleaseWithR8")).isNull()
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
-            assertThat(project.baselineFileExists(OPTIMIZATION_TREE)).isFalse()
-            assertThat(project.baselineFileExists(FULL_BASELINE)).isFalse()
-            assertThat(project.baselineFileExists(FULL_FAST_BASELINE)).isFalse()
         }
     }
 
     @Test
     fun `check runs the optimization guard by default`() {
         AndroidProject(pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG).use { project ->
-            val scheduled = scheduledTasks(build(project, ":app:check", "--dry-run", "--console=plain").output)
+            val scheduled = checkTasks(project)
             assertThat(scheduled).contains(":app:proguardShieldOptimizationRelease")
             assertThat(scheduled).doesNotContain(":app:proguardShieldFullFastRelease")
             assertThat(scheduled).doesNotContain(":app:minifyReleaseWithR8")
@@ -459,11 +432,13 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
-    fun `optimization baseline task writes only the optimization baseline`() {
+    fun `optimization baseline task writes only its own file without running R8`() {
         AndroidProject().use { project ->
-            build(project, ":app:proguardShieldOptimizationBaseline")
+            val result = build(project, ":app:proguardShieldOptimizationBaseline")
 
-            assertThat(project.baselineFileExists(OPTIMIZATION_LIST)).isTrue()
+            assertThat(result.task(":app:minifyReleaseWithR8")).isNull()
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.baselineFileExists(OPTIMIZATION_TREE)).isFalse()
             assertThat(project.baselineFileExists(FULL_BASELINE)).isFalse()
             assertThat(project.baselineFileExists(FULL_FAST_BASELINE)).isFalse()
         }
@@ -576,10 +551,12 @@ internal class ProGuardShieldPluginTest {
     }
 
     /**
-     * BuildResult.task() returns null for dry-run skipped tasks, so parse the
-     * printed task names instead. --console=plain pins the output format.
+     * Tasks `check` would run. BuildResult.task() returns null for dry-run
+     * skipped tasks, so parse the printed task names instead. --console=plain
+     * pins the output format.
      */
-    private fun scheduledTasks(output: String): Set<String> {
+    private fun checkTasks(project: AndroidProject): Set<String> {
+        val output = build(project, ":app:check", "--dry-run", "--console=plain").output
         val taskLine = Regex("^:app:(\\S+)")
         return output.lines()
             .mapNotNull { taskLine.find(it)?.groupValues?.get(1) }
