@@ -63,6 +63,12 @@ class OptimizationBlockingRuleMatcherTest {
     }
 
     @Test
+    fun `option modifiers with spaces around the commas read like the compact form`() {
+        assertMatches("-keep, includedescriptorclasses class * { *; }")
+        assertDoesNotMatch("-keep , allowshrinking , allowobfuscation class ** { *; }")
+    }
+
+    @Test
     fun `real library and AGP default rules do not match`() {
         assertDoesNotMatch(
             "-keepclasseswithmembers class * { @androidx.annotation.Keep <methods>; }",
