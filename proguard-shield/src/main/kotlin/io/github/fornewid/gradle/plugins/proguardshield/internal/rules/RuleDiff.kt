@@ -77,8 +77,11 @@ internal object RuleDiff {
         expectedContent: String,
         actualContent: String,
     ): RuleDiffResult {
-        val expected = RuleNormalizer.normalizeLines(expectedContent)
-        val actual = RuleNormalizer.normalizeLines(actualContent)
+        // Rules are compared as whole units, so a body line such as `<init>(...);`
+        // moving to another rule's block is reported. Body order within a unit
+        // is ignored because R8 keeps its own, unsorted order there.
+        val expected = RuleNormalizer.normalizeUnits(expectedContent).map { it.unitKey() }
+        val actual = RuleNormalizer.normalizeUnits(actualContent).map { it.unitKey() }
 
         // Multiset diff: R8's merged output has many duplicate rules (e.g. the
         // same -dontwarn line contributed by several AARs), so a plain
@@ -92,8 +95,8 @@ internal object RuleDiff {
             val e = expectedCounts[key] ?: 0
             val a = actualCounts[key] ?: 0
             when {
-                a > e -> repeat(a - e) { added.add(key) }
-                e > a -> repeat(e - a) { removed.add(key) }
+                a > e -> repeat(a - e) { added.addAll(key.lines()) }
+                e > a -> repeat(e - a) { removed.addAll(key.lines()) }
             }
         }
 
@@ -103,4 +106,6 @@ internal object RuleDiff {
             RuleDiffResult.HasDiff(projectPath, configurationName, removed, added)
         }
     }
+
+    private fun List<String>.unitKey(): String = (take(1) + drop(1).sorted()).joinToString("\n")
 }
