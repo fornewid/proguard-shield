@@ -50,6 +50,10 @@ proguardShield {
 }
 ```
 
+`configuration(...)` takes a variant name. With product flavors, pass the full
+variant name (e.g. `configuration("freeRelease")`), not the build type — add one
+`configuration(...)` per variant you want to guard.
+
 ### Step 2: Generate a baseline
 
 ```bash
@@ -72,9 +76,11 @@ Commit both files to version control.
 ./gradlew check
 ```
 
-The `check` lifecycle runs the **fast** path (no R8 invocation, seconds instead
-of minutes). If the merged rule set differs from the baseline, the build fails
-with a diff:
+The `check` lifecycle runs the **fast** path, which skips R8 itself. It still
+depends on the tasks that produce R8's inputs (including compilation of the
+variant), so it takes seconds only once those are up to date — it is cheapest
+in a CI job that already assembles the target variant. If the merged rule set
+differs from the baseline, the build fails with a diff:
 
 ```diff
 ProGuard/R8 rules changed in :app for release.
@@ -97,7 +103,7 @@ check. They differ in how they reach the rules:
 | Task family | What runs | Speed | AGP coupling |
 |---|---|---|---|
 | `proguardShield{Variant}` | full R8 with `-printconfiguration` | slow (minutes on real apps) | public AGP API only |
-| `proguardShieldFast{Variant}` | reads R8 inputs directly via reflection | fast (seconds) | uses AGP internal class (`ProguardConfigurableTask`) |
+| `proguardShieldFast{Variant}` | reads R8 inputs directly via reflection | fast (no R8; still runs R8's input tasks, e.g. compilation) | uses AGP internal class (`ProguardConfigurableTask`) |
 
 Daily `check` runs only the fast path. After every AGP upgrade, run the parity
 verification task to confirm the fast path's reflection contract still holds:
@@ -151,6 +157,15 @@ proguardShield {
 |---|---|---|
 | `baselineDir` | `"proguardShield"` | Directory (relative to the module) where baseline files are written. |
 | `forbiddenPatterns` | `[]` | Regex patterns that fail the build whenever a matching rule appears. |
+
+## Limitations
+
+ProGuard Shield compares the text of the merged rule set. It does not detect
+changes in how R8 interprets unchanged rules — such as AGP's
+`strictFullModeForKeepRules`, full vs compat mode, or AGP/R8 upgrades — and it
+does not tell whether your rules are sufficient (new reflection without a
+matching keep rule produces no diff). After such changes, test your release
+build.
 
 ## Requirements
 
