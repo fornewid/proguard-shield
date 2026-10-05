@@ -71,8 +71,9 @@ class RuleOriginsTest {
     }
 
     @Test
-    fun `only external modules are libraries`() {
+    fun `only external modules and files are libraries`() {
         assertThat(RuleOrigin("com.example:sdk").isLibrary).isTrue()
+        assertThat(RuleOrigin("vendor.aar").isLibrary).isTrue()
         assertThat(RuleOrigin(":lib").isLibrary).isFalse()
         assertThat(RuleOrigin(":").isLibrary).isFalse()
         assertThat(RuleOrigin("<agp>").isLibrary).isFalse()
