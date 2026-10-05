@@ -70,11 +70,11 @@ error is thrown otherwise.
 
     ./gradlew proguardShieldOptimizationBaseline
 
-This writes `proguardShield/releaseOptimizationBlockingRules.txt`. The file is
-empty when no rule blocks optimization; commit it anyway.
+This writes `proguardShield/releaseOptimizationBlockingRules.txt`: the AGP
+version and R8 mode properties, then the blocking rules (often none). Commit it.
 
 **AI Agent**: Always run `proguardShieldOptimizationBaseline` first during
-initial setup and commit the file, even if it is empty.
+initial setup and commit the file, even if it lists no rules.
 
 ## Step 3: Detect changes
 
@@ -150,12 +150,10 @@ the configuration block.
 - **`isMinifyEnabled = false`**: the plugin requires the target variant to
   have minification enabled. The plugin throws a configuration-time error
   if not, naming the variant.
-- **Not committing the empty baseline**: an empty
-  `releaseOptimizationBlockingRules.txt` is common; commit it so a
-  newly added blocking rule fails `check`.
-- **Upgrading from 0.0.7**: rules of AAR/JAR file dependencies
-  (`files("libs/x.aar")`) are now checked like external libraries. If `check`
-  fails after the upgrade, re-run `proguardShieldOptimizationBaseline` and
+- **Upgrading from 0.0.7**: the optimization list starts with the AGP version
+  and R8 mode properties, and rules of AAR/JAR file dependencies
+  (`files("libs/x.aar")`) are checked like external libraries. `check` fails
+  once after the upgrade: re-run `proguardShieldOptimizationBaseline` and
   commit the result.
 - **Upgrading from 0.0.6**: the optimization mode also lists external libraries'
   rules that reach code outside the library. If `check` fails after the upgrade,

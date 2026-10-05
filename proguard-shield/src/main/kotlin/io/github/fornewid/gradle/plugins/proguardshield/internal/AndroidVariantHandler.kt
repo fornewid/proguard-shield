@@ -8,6 +8,7 @@ import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPluginExte
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.LibraryKeepRuleOrigins
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.LibraryPackagesTransform
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.ProGuardShieldOptimizationTask
+import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.R8Context
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.RuleOrigins
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.GenerateInjectedRulesTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.printconfig.ProGuardShieldListTask
@@ -235,6 +236,9 @@ internal object AndroidVariantHandler {
                 }
                 .artifacts
             val appNamespace = variant.namespace
+            val r8Context = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java).pluginVersion.run {
+                R8Context.lines(R8Context.agpVersion(major, minor, micro, previewType, preview)) { project.providers.gradleProperty(it).orNull }
+            }
 
             fun ProGuardShieldOptimizationTask.configureOptimization(baseline: Boolean) {
                 this.ruleInputs.from(ruleInputs)
@@ -243,6 +247,7 @@ internal object AndroidVariantHandler {
                 this.libraryArtifacts.from(libraryArtifacts.artifactFiles)
                 this.libraryArtifactOrigins.set(RuleOrigins.byPath(libraryArtifacts))
                 this.appNamespace.set(appNamespace)
+                this.r8Context.set(r8Context)
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)
                 this.projectDirPath.set(projectDirPath)

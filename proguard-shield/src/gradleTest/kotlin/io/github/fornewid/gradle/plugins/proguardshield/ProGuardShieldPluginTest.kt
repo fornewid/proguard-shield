@@ -437,7 +437,7 @@ internal class ProGuardShieldPluginTest {
             val result = build(project, ":app:proguardShieldOptimizationBaseline")
 
             assertThat(result.task(":app:minifyReleaseWithR8")).isNull()
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
             assertThat(project.baselineFileExists(OPTIMIZATION_TREE)).isFalse()
             assertThat(project.baselineFileExists(FULL_BASELINE)).isFalse()
             assertThat(project.baselineFileExists(FULL_FAST_BASELINE)).isFalse()
@@ -455,13 +455,28 @@ internal class ProGuardShieldPluginTest {
 
             build(project, ":app:proguardShieldOptimizationBaseline")
 
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST))
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST))
                 .isEqualTo("-dontobfuscate\n-keep class ** { *; }\n-keepattributes *\n")
             assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo(
                 "[:app]\n-keepattributes *\n\n[com.example:risky]\n-dontobfuscate\n-keep class ** { *; }\n",
             )
             assertThat(build(project, ":app:proguardShieldOptimization").output)
                 .doesNotContain("optimization-blocking rules changed")
+        }
+    }
+
+    @Test
+    fun `optimization list starts with the AGP version and R8 mode properties`() {
+        AndroidProject().use { project ->
+            build(project, ":app:proguardShieldOptimizationBaseline")
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo(
+                "# agp=${project.agpVersion}\n# android.enableR8.fullMode=default\n" +
+                    "# android.r8.strictFullModeForKeepRules=default\n# android.r8.globalOptionsInConsumerRules.disallowed=default\n",
+            )
+
+            val output = buildAndFail(project, ":app:proguardShieldOptimization", "-Pandroid.enableR8.fullMode=false").output
+            assertThat(output).contains("- # android.enableR8.fullMode=default")
+            assertThat(output).contains("+ # android.enableR8.fullMode=false")
         }
     }
 
@@ -474,7 +489,7 @@ internal class ProGuardShieldPluginTest {
             project.publishLocalAar("com.example", "sdk", "1.0", "-keep class com.example.sdk.Marker")
             project.publishLocalAar("com.example", "sdk", "2.0", "-keep class com.example.sdk.Marker\n-dontobfuscate")
             build(project, ":app:proguardShieldOptimizationBaseline")
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
 
             project.replaceInAppBuildFile("com.example:sdk:1.0", "com.example:sdk:2.0")
 
@@ -527,7 +542,7 @@ internal class ProGuardShieldPluginTest {
 
             build(project, ":app:proguardShieldOptimizationBaseline")
 
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo(
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo(
                 "-ignorewarnings\n-keep class com.google.gson.** { *; }\n-keep class io.github.fornewid.** { *; }\n" +
                     "-keep class okhttp3.** { *; }\n-keep class okio.** { *; }\n",
             )
@@ -554,7 +569,7 @@ internal class ProGuardShieldPluginTest {
                 classes = listOf("com.vendor.sdk.Api"),
             )
             build(project, ":app:proguardShieldOptimizationBaseline")
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
 
             project.replaceInAppBuildFile("com.vendor:sdk:1.0", "com.vendor:sdk:2.0")
 
@@ -585,7 +600,7 @@ internal class ProGuardShieldPluginTest {
 
             build(project, ":app:proguardShieldOptimizationBaseline")
 
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
         }
     }
 

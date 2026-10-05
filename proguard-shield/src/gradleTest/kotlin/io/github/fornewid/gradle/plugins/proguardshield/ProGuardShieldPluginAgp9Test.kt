@@ -127,7 +127,7 @@ internal class ProGuardShieldPluginAgp9Test {
         newProject(proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keepattributes *").use { project ->
             build(project, ":app:proguardShieldOptimizationBaseline")
 
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo("-keepattributes *\n")
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keepattributes *\n")
             assertThat(build(project, ":app:proguardShieldOptimization").output)
                 .doesNotContain("optimization-blocking rules changed")
         }
@@ -164,7 +164,7 @@ internal class ProGuardShieldPluginAgp9Test {
 
             build(project, ":app:proguardShieldOptimizationBaseline")
 
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo("-keep class com.google.gson.** { *; }\n")
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keep class com.google.gson.** { *; }\n")
         }
     }
 

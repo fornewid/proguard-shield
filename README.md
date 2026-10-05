@@ -61,9 +61,10 @@ variant name (e.g. `configuration("freeRelease")`), not the build type — add o
 ./gradlew proguardShieldOptimizationBaseline
 ```
 
-Creates `proguardShield/releaseOptimizationBlockingRules.txt`. It is empty
-when no rule blocks R8's optimization — commit it anyway, so the next rule that
-does shows up as a failure.
+Creates `proguardShield/releaseOptimizationBlockingRules.txt`: the AGP version
+and R8 mode properties, then the rules that block R8's optimization (often none).
+Commit it, so the next such rule — or an AGP or R8 mode change — shows up as a
+failure.
 
 ### Step 3: Detect changes
 
@@ -133,6 +134,18 @@ A library's rule is not listed when it:
 - keeps a single named class without members, or lists only some members:
   `-keep class kotlin.Metadata`, `{ <init>(); }`, `{ volatile <fields>; }`
 - has both `allowshrinking` and `allowobfuscation`
+
+The list starts with what decides how R8 reads these rules: the AGP version and
+the R8 mode properties as set (`default` when unset).
+
+```
+# agp=9.4.1
+# android.enableR8.fullMode=default
+# android.r8.strictFullModeForKeepRules=default
+# android.r8.globalOptionsInConsumerRules.disallowed=default
+
+-ignorewarnings
+```
 
 With `tree = true`, `<variant>OptimizationBlockingRules.tree.txt` groups the
 rules by origin (Maven versions omitted, so upgrading a library alone does not change it):
@@ -212,10 +225,12 @@ proguardShield {
 
 ## Migrating from 0.0.7
 
+- The optimization list starts with the AGP version and R8 mode properties, so
+  `check` fails once after the upgrade: run
+  `./gradlew proguardShieldOptimizationBaseline` and commit the result.
 - AAR/JAR file dependencies (`files("libs/x.aar")`) are now checked like
   external libraries, and `.tree.txt` lists their rules under the file name
-  (`[x.aar]`) instead of `<unresolved>`. If `check` fails after the upgrade,
-  run `./gradlew proguardShieldOptimizationBaseline` and commit the result.
+  (`[x.aar]`) instead of `<unresolved>`.
 
 ## Migrating from 0.0.6
 
@@ -257,12 +272,11 @@ Rename the committed baseline files (`git mv`), or regenerate them with
 
 ## Limitations
 
-ProGuard Shield compares the text of the merged rule set. It does not detect
-changes in how R8 interprets unchanged rules — such as AGP's
-`strictFullModeForKeepRules`, full vs compat mode, or AGP/R8 upgrades — and it
-does not tell whether your rules are sufficient (new reflection without a
-matching keep rule produces no diff). After such changes, test your release
-build.
+ProGuard Shield compares the text of the merged rule set. An AGP upgrade or an R8
+mode property change fails `check` once, but it cannot tell what the change does
+to R8's output, or whether your rules are sufficient (new reflection without a
+matching keep rule produces no diff). An R8 version set apart from AGP's is not
+recorded. After such changes, test your release build.
 
 On AGP 9, the optimization and fullFast modes do not read the rules of dynamic
 feature modules or AAPT2-generated rules, which AGP keeps in separate R8 inputs;
