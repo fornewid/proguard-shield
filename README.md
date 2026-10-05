@@ -142,8 +142,9 @@ A library's rule is not listed when it:
   `-keep class kotlin.Metadata`, `{ <init>(); }`, `{ volatile <fields>; }`
 - has both `allowshrinking` and `allowobfuscation`
 
-The list starts with what decides how R8 reads these rules: the AGP version and
-the R8 mode properties as set (`default` when unset).
+The list starts with what decides how R8 reads these rules: the AGP version, the
+R8 version when `android.r8.versionOverride` sets one (AGP 9.5+), and the R8
+mode properties as set (`default` when unset).
 
 ```
 # agp=9.4.1
@@ -238,6 +239,8 @@ proguardShield {
   baselines and commit the result.
 - The optimization and fullFast modes also read the rules AGP passes to R8 as
   strings (JaCoCo's keep rules when testing a minified build with coverage).
+- With `android.r8.versionOverride` set (AGP 9.5+), the optimization list
+  records it.
 
 ## Migrating from 0.0.7
 

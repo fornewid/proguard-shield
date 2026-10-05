@@ -19,6 +19,27 @@ class R8ContextTest {
     }
 
     @Test
+    fun `lines give the R8 version only when an override sets it`() {
+        assertThat(R8Context.lines("9.5.0") { if (it == "android.r8.versionOverride") "9.5.20" else null })
+            .containsExactly(
+                "# agp=9.5.0",
+                "# android.r8.versionOverride=9.5.20",
+                "# android.enableR8.fullMode=default",
+                "# android.r8.strictFullModeForKeepRules=default",
+                "# android.r8.globalOptionsInConsumerRules.disallowed=default",
+            )
+            .inOrder()
+    }
+
+    @Test
+    fun `the R8 version override is read like AGP reads it`() {
+        assertThat(R8Context.lines("9.5.0") { if (it == "android.r8.versionOverride") " 9.5.20 " else null })
+            .contains("# android.r8.versionOverride=9.5.20")
+        assertThat(R8Context.lines("9.5.0") { if (it == "android.r8.versionOverride") " " else null })
+            .isEqualTo(R8Context.lines("9.5.0") { null })
+    }
+
+    @Test
     fun `AGP versions keep their preview suffix`() {
         assertThat(R8Context.agpVersion(9, 4, 1, null, 0)).isEqualTo("9.4.1")
         assertThat(R8Context.agpVersion(9, 5, 0, "alpha", 3)).isEqualTo("9.5.0-alpha03")
@@ -40,6 +61,7 @@ class R8ContextTest {
     fun `only lines R8Context writes are header lines`() {
         assertThat(R8Context.isHeader("# agp=9.4.1")).isTrue()
         assertThat(R8Context.isHeader("# android.r8.strictFullModeForKeepRules=default")).isTrue()
+        assertThat(R8Context.isHeader("# android.r8.versionOverride=9.5.20")).isTrue()
         assertThat(R8Context.isHeader("# accepted")).isFalse()
         assertThat(R8Context.isHeader("# reason=vendor")).isFalse()
     }

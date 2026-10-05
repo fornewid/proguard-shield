@@ -153,8 +153,9 @@ the configuration block.
 - **Upgrading from 0.0.9**: on AGP 9.3+, the optimization and fullFast modes
   read the rules of dynamic feature modules again, and both modes also read
   the rules AGP passes to R8 as strings (JaCoCo's keep rules when testing a
-  minified build with coverage). If `check` fails after the upgrade, re-run
-  the baselines and commit the result.
+  minified build with coverage). With `android.r8.versionOverride` set (AGP
+  9.5+), the optimization list records it. If `check` fails after the upgrade,
+  re-run the baselines and commit the result.
 - **Upgrading from 0.0.7**: the optimization list starts with the AGP version
   and R8 mode properties, and rules of AAR/JAR file dependencies
   (`files("libs/x.aar")`) are checked like external libraries. `check` fails
