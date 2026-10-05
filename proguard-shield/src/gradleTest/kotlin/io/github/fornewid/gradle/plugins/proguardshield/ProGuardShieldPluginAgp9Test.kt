@@ -86,7 +86,10 @@ internal class ProGuardShieldPluginAgp9Test {
 
     @Test
     fun `verifyParity passes on AGP 9`() {
-        newProject().use { project ->
+        newProject(dependencies = "implementation 'com.example:global:1.0'").use { project ->
+            // AGP 9.5+ removes this before R8 reads it. Either way, fullFast must read what R8 reads.
+            project.publishLocalAar("com.example", "global", "1.0", "-dontobfuscate")
+
             val result = build(project, ":app:proguardShieldVerifyParity")
             assertThat(result.output).contains("parity holds")
             // Resource shrinking is off, so AAPT2 keeps MainActivity through AGP 9.3+'s own input (#30).
@@ -153,14 +156,13 @@ internal class ProGuardShieldPluginAgp9Test {
             pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
             dependencies = "implementation 'com.example:risky:1.0'",
         ).use { project ->
-            project.publishLocalAar("com.example", "risky", "1.0", "-dontobfuscate\n-keep class ** { *; }")
+            // Not -dontobfuscate: AGP 9.5+ removes such app-wide options from consumer rules before R8 reads them.
+            project.publishLocalAar("com.example", "risky", "1.0", "-keepattributes *\n-keep class ** { *; }")
 
             build(project, ":app:proguardShieldOptimizationBaseline")
 
-            // The library's -dontobfuscate still reaches R8 on AGP 9.4 (it is in R8's own
-            // -printconfiguration output), so it is reported along with the keep.
             assertThat(project.readBaselineFile(OPTIMIZATION_TREE))
-                .isEqualTo("[com.example:risky]\n-dontobfuscate\n-keep class ** { *; }\n")
+                .isEqualTo("[com.example:risky]\n-keep class ** { *; }\n-keepattributes *\n")
         }
     }
 
