@@ -231,6 +231,9 @@ proguardShield {
 - AAR/JAR file dependencies (`files("libs/x.aar")`) are now checked like
   external libraries, and `.tree.txt` lists their rules under the file name
   (`[x.aar]`) instead of `<unresolved>`.
+- On AGP 9.3+, the fullFast baseline now includes AAPT2-generated keep rules
+  (emitted unless R8's optimized resource shrinking runs), as on earlier AGP
+  versions.
 
 ## Migrating from 0.0.6
 
@@ -278,9 +281,9 @@ to R8's output, or whether your rules are sufficient (new reflection without a
 matching keep rule produces no diff). An R8 version set apart from AGP's is not
 recorded. After such changes, test your release build.
 
-On AGP 9, the optimization and fullFast modes do not read the rules of dynamic
-feature modules or AAPT2-generated rules, which AGP keeps in separate R8 inputs;
-the full mode sees everything R8 sees.
+On AGP 9.3+, the optimization and fullFast modes do not read the rules of
+dynamic feature modules, which AGP keeps in a separate R8 input; the full mode
+sees everything R8 sees.
 
 ## Requirements
 
