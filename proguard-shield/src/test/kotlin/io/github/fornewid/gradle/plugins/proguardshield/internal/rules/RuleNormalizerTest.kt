@@ -116,9 +116,8 @@ class RuleNormalizerTest {
     @Test
     fun `strips our injected -printconfiguration directive`() {
         // R8's merged output echoes back the -printconfiguration line from
-        // our injected .pro file. That line carries an absolute build-dir
-        // path, so leaving it in the baseline would break reproducibility
-        // across machines.
+        // our injected .pro file. That line is ProGuard Shield's own, not
+        // part of the app's rules, so it must not enter the baseline.
         val input = """
             -printconfiguration /Users/ci/work/proguard-shield/sample/app/build/proguardShield/release/merged-rules.txt
             -keep class com.example.Foo

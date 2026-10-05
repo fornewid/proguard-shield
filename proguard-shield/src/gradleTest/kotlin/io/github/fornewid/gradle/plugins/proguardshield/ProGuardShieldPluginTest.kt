@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.AndroidProject
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.build
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.buildAndFail
+import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Test
 
 internal class ProGuardShieldPluginTest {
@@ -65,6 +66,34 @@ internal class ProGuardShieldPluginTest {
         AndroidProject().use { project ->
             val result = build(project, ":app:proguardShieldFullBaselineRelease")
             assertThat(result.task(":app:minifyReleaseWithR8")).isNotNull()
+        }
+    }
+
+    @Test
+    fun `full mode shares R8's build cache across checkouts`() {
+        // #31
+        AndroidProject().use { first ->
+            AndroidProject().use { second ->
+                build(first, ":app:proguardShieldFullBaselineRelease", "--build-cache")
+                val result = build(second, ":app:proguardShieldFullBaselineRelease", "--build-cache")
+
+                assertThat(result.task(":app:minifyReleaseWithR8")?.outcome).isEqualTo(TaskOutcome.FROM_CACHE)
+            }
+        }
+    }
+
+    @Test
+    fun `full baseline explains when another -printconfiguration takes precedence`() {
+        AndroidProject(dependencies = "implementation 'com.vendor:sdk:1.0'").use { project ->
+            project.publishLocalAar("com.vendor", "sdk", "1.0", "")
+            project.publishLocalAar("com.vendor", "sdk", "2.0", "-printconfiguration vendor-config.txt")
+            build(project, ":app:proguardShieldFullBaselineRelease")
+            // R8 runs again and writes the library's file instead: the earlier merged-rules.txt must not be read.
+            project.replaceInAppBuildFile("com.vendor:sdk:1.0", "com.vendor:sdk:2.0")
+
+            val output = buildAndFail(project, ":app:proguardShieldFullBaselineRelease").output
+
+            assertThat(output).contains("another -printconfiguration in the rules R8 reads took precedence")
         }
     }
 
