@@ -26,6 +26,7 @@ class R8TaskInputExtractorTest {
     inner class Agp93ShapedTask : Agp8ShapedTask() {
         fun getKeepRulesFiles(): FileCollection = project.files("src/main/keepRules/app.keep")
         fun getAaptProguardFiles(): FileCollection = project.files("aapt_rules.txt")
+        fun getFeatureProguardFiles(): FileCollection = project.files("feature/feature-rules.pro")
     }
 
     inner class MissingRequiredGetterTask {
@@ -44,7 +45,13 @@ class R8TaskInputExtractorTest {
         val files = R8TaskInputExtractor.ruleFiles(Agp93ShapedTask::class.java, Agp93ShapedTask())
 
         assertThat(files.relativePaths())
-            .containsExactly("app.pro", "generated_proguard.txt", "src/main/keepRules/app.keep", "aapt_rules.txt")
+            .containsExactly(
+                "app.pro",
+                "generated_proguard.txt",
+                "src/main/keepRules/app.keep",
+                "aapt_rules.txt",
+                "feature/feature-rules.pro",
+            )
     }
 
     @Test

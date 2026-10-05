@@ -22,6 +22,9 @@ import org.gradle.api.file.FileCollection
  * - `aaptProguardFiles` (reflection, optional): AAPT2-generated keep rules
  *   (manifest components, layouts). Only exists on AGP 9.3+; earlier versions
  *   pass them through `configurationFiles`.
+ * - `featureProguardFiles` (reflection, optional): rules of dynamic feature
+ *   modules. Only exists on AGP 9.3+; earlier versions pass them through
+ *   `configurationFiles`.
  */
 internal object R8TaskInputExtractor {
 
@@ -41,6 +44,7 @@ internal object R8TaskInputExtractor {
     private val OPTIONAL_METHOD_NAMES = listOf(
         "getKeepRulesFiles", // AGP 9.1+
         "getAaptProguardFiles", // AGP 9.3+
+        "getFeatureProguardFiles", // AGP 9.3+
     )
 
     fun allRuleFiles(task: Task): FileCollection {
