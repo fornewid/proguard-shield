@@ -95,6 +95,21 @@ internal class ProGuardShieldPluginAgp9Test {
     }
 
     @Test
+    fun `dynamic feature rules reach fullFast and optimization on AGP 9`() {
+        // AGP 9.3+ passes them through their own input (#55).
+        newProject().use { project ->
+            project.addDynamicFeature("-keepnames class **")
+
+            // Like `check`: the optimization task alone, without R8.
+            val optimization = build(project, ":app:proguardShieldOptimizationBaseline")
+            assertThat(optimization.task(":app:minifyReleaseWithR8")).isNull()
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keepnames class **\n")
+
+            assertThat(build(project, ":app:proguardShieldVerifyParity").output).contains("parity holds")
+        }
+    }
+
+    @Test
     fun `fullFast drops consumer rules ignored via ignoreFrom on AGP 9`() {
         newProject(
             releaseExtra = """

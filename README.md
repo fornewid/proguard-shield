@@ -171,7 +171,8 @@ ProGuard Shield: optimization-blocking rules changed in :app (release).
 Origins are the module path for project dependencies and the module's own
 files, `group:artifact` for external libraries, the file name for file
 dependencies (`files("libs/x.aar")` → `x.aar`), `<agp>` for the AGP default
-rule file, and `<unresolved>` for anything else. Libraries excluded with AGP's
+rule file, and `<unresolved>` for anything else, such as the rules of dynamic
+feature modules. Libraries excluded with AGP's
 `optimization.keepRules.ignoreFrom` are skipped, like R8 does.
 
 ## Forbidden patterns
@@ -224,6 +225,12 @@ proguardShield {
 | `fullFast` | `false` | Keep a full rule baseline read from R8's inputs without running R8. On `check`. |
 | `full` | `false` | Keep a full rule baseline as R8 prints it (runs R8, public AGP API only). Not on `check`. |
 | `forbiddenPatterns` | `[]` | Regex patterns that fail the full / fullFast modes whenever a matching rule appears. |
+
+## Migrating from 0.0.9
+
+- On AGP 9.3+, the optimization and fullFast modes read the rules of dynamic
+  feature modules again. If `check` fails after the upgrade, re-run the
+  baselines and commit the result.
 
 ## Migrating from 0.0.7
 
@@ -282,10 +289,6 @@ mode property change fails `check` once, but it cannot tell what the change does
 to R8's output, or whether your rules are sufficient (new reflection without a
 matching keep rule produces no diff). An R8 version set apart from AGP's is not
 recorded. After such changes, test your release build.
-
-On AGP 9.3+, the optimization and fullFast modes do not read the rules of
-dynamic feature modules, which AGP keeps in a separate R8 input; the full mode
-sees everything R8 sees.
 
 ## Requirements
 
