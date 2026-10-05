@@ -15,9 +15,13 @@ import org.gradle.api.file.FileCollection
  *   default file path lives under `build/intermediates/.../default_proguard_files/`
  *   and only exists after `extractProguardFiles` runs, so the fullFast task must
  *   `dependsOn(extractProguardFiles)` explicitly.
- * - `generatedProguardFile` (reflection): AAPT2-generated rules.
+ * - `generatedProguardFile` (reflection): rules generated while compiling
+ *   (e.g. by annotation processors).
  * - `keepRulesFiles` (reflection, optional): keep-rule source sets
- *   (`.keep` files under `src/<variant>/keepRules/`). Only exists on AGP 9.3+.
+ *   (`.keep` files under `src/<variant>/keepRules/`). Only exists on AGP 9.1+.
+ * - `aaptProguardFiles` (reflection, optional): AAPT2-generated keep rules
+ *   (manifest components, layouts). Only exists on AGP 9.3+; earlier versions
+ *   pass them through `configurationFiles`.
  */
 internal object R8TaskInputExtractor {
 
@@ -35,7 +39,8 @@ internal object R8TaskInputExtractor {
 
     /** Getters that only exist on some AGP versions; skipped when absent. */
     private val OPTIONAL_METHOD_NAMES = listOf(
-        "getKeepRulesFiles", // AGP 9.3+
+        "getKeepRulesFiles", // AGP 9.1+
+        "getAaptProguardFiles", // AGP 9.3+
     )
 
     fun allRuleFiles(task: Task): FileCollection {

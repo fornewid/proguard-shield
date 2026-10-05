@@ -210,8 +210,8 @@ internal object AndroidVariantHandler {
 
         // configurationFiles references the user-selected default file under
         // build/intermediates/default_proguard_files/, which only exists after
-        // extractProguardFiles runs. AAPT2-generated rules similarly require
-        // their merge task, and with full enabled the injected `.pro` is one of
+        // extractProguardFiles runs. Rules generated while compiling similarly
+        // require their merge task, and with full enabled the injected `.pro` is one of
         // R8's inputs too. These task names are AGP-internal — if they ever
         // change, Gradle surfaces a "Task not found" error at execution time
         // and users can fall back to the full mode.

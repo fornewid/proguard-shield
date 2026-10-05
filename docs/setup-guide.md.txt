@@ -154,7 +154,9 @@ the configuration block.
   and R8 mode properties, and rules of AAR/JAR file dependencies
   (`files("libs/x.aar")`) are checked like external libraries. `check` fails
   once after the upgrade: re-run `proguardShieldOptimizationBaseline` and
-  commit the result.
+  commit the result. On AGP 9.3+, re-run `proguardShieldFullFastBaseline` too:
+  it now includes AAPT2-generated keep rules unless optimized resource
+  shrinking runs.
 - **Upgrading from 0.0.6**: the optimization mode also lists external libraries'
   rules that reach code outside the library. If `check` fails after the upgrade,
   re-run `proguardShieldOptimizationBaseline` and commit the result.

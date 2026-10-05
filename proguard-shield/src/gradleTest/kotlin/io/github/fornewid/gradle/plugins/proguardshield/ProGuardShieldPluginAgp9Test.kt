@@ -34,9 +34,6 @@ internal class ProGuardShieldPluginAgp9Test {
         pluginConfig = pluginConfig,
         releaseExtra = releaseExtra,
         dependencies = dependencies,
-        // Resource shrinking on: AGP 9 then emits no AAPT2 keep rules, so the
-        // known fast-path gap (#30) does not mask other AGP 9 regressions.
-        shrinkResources = true,
         agpVersion = AGP_VERSION,
         gradleVersion = GRADLE_VERSION,
     )
@@ -92,6 +89,8 @@ internal class ProGuardShieldPluginAgp9Test {
         newProject().use { project ->
             val result = build(project, ":app:proguardShieldVerifyParity")
             assertThat(result.output).contains("parity holds")
+            // Resource shrinking is off, so AAPT2 keeps MainActivity through AGP 9.3+'s own input (#30).
+            assertThat(project.readBaselineFile(FULL_FAST_BASELINE)).contains("MainActivity")
         }
     }
 

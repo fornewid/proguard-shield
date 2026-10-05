@@ -19,12 +19,13 @@ class R8TaskInputExtractorTest {
     /** Shape of AGP 8.x `ProguardConfigurableTask` (no keep-rule source sets). */
     open inner class Agp8ShapedTask {
         fun getConfigurationFiles(): FileCollection = project.files("app.pro")
-        fun getGeneratedProguardFile(): FileCollection = project.files("aapt_rules.txt")
+        fun getGeneratedProguardFile(): FileCollection = project.files("generated_proguard.txt")
     }
 
     /** Shape of AGP 9.3+ `ProguardConfigurableTask`. */
     inner class Agp93ShapedTask : Agp8ShapedTask() {
         fun getKeepRulesFiles(): FileCollection = project.files("src/main/keepRules/app.keep")
+        fun getAaptProguardFiles(): FileCollection = project.files("aapt_rules.txt")
     }
 
     inner class MissingRequiredGetterTask {
@@ -35,7 +36,7 @@ class R8TaskInputExtractorTest {
     fun `AGP 8 shaped task reads the required getters only`() {
         val files = R8TaskInputExtractor.ruleFiles(Agp8ShapedTask::class.java, Agp8ShapedTask())
 
-        assertThat(files.relativePaths()).containsExactly("app.pro", "aapt_rules.txt")
+        assertThat(files.relativePaths()).containsExactly("app.pro", "generated_proguard.txt")
     }
 
     @Test
@@ -43,7 +44,7 @@ class R8TaskInputExtractorTest {
         val files = R8TaskInputExtractor.ruleFiles(Agp93ShapedTask::class.java, Agp93ShapedTask())
 
         assertThat(files.relativePaths())
-            .containsExactly("app.pro", "aapt_rules.txt", "src/main/keepRules/app.keep")
+            .containsExactly("app.pro", "generated_proguard.txt", "src/main/keepRules/app.keep", "aapt_rules.txt")
     }
 
     @Test
