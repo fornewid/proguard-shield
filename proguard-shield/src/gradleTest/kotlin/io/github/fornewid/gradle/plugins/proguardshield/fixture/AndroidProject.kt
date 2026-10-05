@@ -228,7 +228,7 @@ internal class AndroidProject(
     /** Adds a `:feature` dynamic feature module whose release build type ships [rules]. */
     fun addDynamicFeature(rules: String) {
         dir.resolve("settings.gradle").appendText("\ninclude ':feature'\n")
-        dir.resolve("app/build.gradle").appendText("\nandroid.dynamicFeatures = [':feature']\n")
+        appendToAppBuildFile("android.dynamicFeatures = [':feature']")
         val featureDir = dir.resolve("feature").apply { mkdirs() }
         featureDir.resolve("build.gradle").writeText(
             """
@@ -254,6 +254,10 @@ internal class AndroidProject(
         )
         featureDir.resolve("feature-rules.pro").writeText(rules)
         featureDir.resolve("src/main").apply { mkdirs() }.resolve("AndroidManifest.xml").writeText("<manifest />")
+    }
+
+    fun appendToAppBuildFile(text: String) {
+        dir.resolve("app/build.gradle").appendText("\n$text\n")
     }
 
     /** Rewrites part of `app/build.gradle`, e.g. to change the plugin config or a dependency version. */

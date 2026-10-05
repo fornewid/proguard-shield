@@ -42,6 +42,10 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val ruleInputs: ConfigurableFileCollection
 
+    /** Rules AGP passes to R8 as strings rather than files; their origin is `<agp>`. */
+    @get:Input
+    abstract val inlineRules: ListProperty<String>
+
     /** Library rule file absolute path → the dependency that ships it. */
     @get:Input
     abstract val libraryOrigins: MapProperty<String, RuleOrigin>
@@ -105,9 +109,10 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
         // Every output below is sorted or compared as a set, so file order does not matter.
         val rules = ruleInputs.files
             .filter { it.isFile }
-            .flatMap { file ->
-                val origin = RuleOrigins.resolve(file, origins, projectDir, path)
-                RuleNormalizer.normalizeUnits(file.readText())
+            .map { file -> file.readText() to RuleOrigins.resolve(file, origins, projectDir, path) }
+            .plus(inlineRules.get().joinToString("\n") to RuleOrigin(RuleOrigins.AGP))
+            .flatMap { (text, origin) ->
+                RuleNormalizer.normalizeUnits(text)
                     .filter { unit ->
                         OptimizationBlockingRuleMatcher.matches(unit) ||
                             (origin.isLibrary && LibraryRuleMatcher.matches(unit, origin.label, packages))

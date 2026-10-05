@@ -206,6 +206,8 @@ internal object AndroidVariantHandler {
             )
         }
 
+        val inlineRules = project.provider { R8TaskInputExtractor.inlineRules(project.tasks.named(minifyTaskName).get()) }
+
         // Each library rule file mapped to the dependency that ships it (optimization), lazy like `ruleInputs`.
         val libraryOrigins = project.provider { project.tasks.named(minifyTaskName).get() }
             .flatMap { LibraryKeepRuleOrigins.of(it) }
@@ -244,6 +246,7 @@ internal object AndroidVariantHandler {
 
             fun ProGuardShieldOptimizationTask.configureOptimization(baseline: Boolean) {
                 this.ruleInputs.from(ruleInputs)
+                this.inlineRules.set(inlineRules)
                 fastExtraDepNames.forEach { dependsOn(it) }
                 this.libraryOrigins.set(libraryOrigins)
                 this.libraryArtifacts.from(libraryArtifacts.artifactFiles)
@@ -280,6 +283,7 @@ internal object AndroidVariantHandler {
                 ProGuardShieldFastListTask::class.java,
             ) {
                 this.ruleInputs.from(ruleInputs)
+                this.inlineRules.set(inlineRules)
                 fastExtraDepNames.forEach { dependsOn(it) }
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)
@@ -297,6 +301,7 @@ internal object AndroidVariantHandler {
                 ProGuardShieldFastListTask::class.java,
             ) {
                 this.ruleInputs.from(ruleInputs)
+                this.inlineRules.set(inlineRules)
                 fastExtraDepNames.forEach { dependsOn(it) }
                 configurationName.set(config.configurationName)
                 projectPath.set(project.path)

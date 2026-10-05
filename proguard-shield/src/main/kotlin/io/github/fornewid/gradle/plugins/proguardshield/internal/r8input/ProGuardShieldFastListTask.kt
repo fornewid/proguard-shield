@@ -41,6 +41,10 @@ internal abstract class ProGuardShieldFastListTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val ruleInputs: ConfigurableFileCollection
 
+    /** Rules AGP passes to R8 as strings ([R8TaskInputExtractor.inlineRules]). */
+    @get:Input
+    abstract val inlineRules: ListProperty<String>
+
     @get:Input
     abstract val configurationName: Property<String>
 
@@ -96,9 +100,9 @@ internal abstract class ProGuardShieldFastListTask : DefaultTask() {
                     file.absoluteFile.invariantSeparatorsPath
                 }
             }
-            .joinToString("\n") { file ->
-                if (file.exists() && file.isFile) file.readText() else ""
-            }
+            .map { file -> if (file.exists() && file.isFile) file.readText() else "" }
+            .plus(inlineRules.get())
+            .joinToString("\n")
         val units = RuleNormalizer.normalizeUnits(concatenated)
         val normalized = units.flatten().joinToString("\n")
 

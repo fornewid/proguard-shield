@@ -47,6 +47,8 @@ internal object R8TaskInputExtractor {
         "getFeatureProguardFiles", // AGP 9.3+
     )
 
+    private const val INLINE_RULES_METHOD_NAME = "getProguardConfigurations"
+
     fun allRuleFiles(task: Task): FileCollection {
         // Load from the task's own classloader: with includeBuild or plugin
         // isolation AGP can live in a different loader than this plugin.
@@ -88,5 +90,19 @@ internal object R8TaskInputExtractor {
         }
 
         return collections.reduce { acc, next -> acc.plus(next) }
+    }
+
+    /**
+     * Rules AGP passes to R8 as strings rather than files, such as JaCoCo's keeps when the variant's build type
+     * is the `testBuildType` with `enableAndroidTestCoverage`. Declared on AGP's R8 task (`R8Task` in 8.x,
+     * `BaseR8Task` in 9.x).
+     */
+    fun inlineRules(task: Any): List<String> {
+        val value = runCatching { task.javaClass.getMethod(INLINE_RULES_METHOD_NAME) }.getOrNull()?.invoke(task)
+        return (value as? Iterable<*>)?.map { it.toString() }
+            ?: throw GradleException(
+                "ProGuard Shield: $INLINE_RULES_METHOD_NAME could not be read on ${task.javaClass.name} in this AGP " +
+                    "version (got ${value?.let { it::class.qualifiedName }}). $FALLBACK_HINT",
+            )
     }
 }
