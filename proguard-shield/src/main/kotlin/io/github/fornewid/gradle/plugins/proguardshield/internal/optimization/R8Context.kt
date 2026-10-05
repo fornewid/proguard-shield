@@ -1,9 +1,10 @@
 package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
 
 /**
- * What decides how R8 reads the rules, written as the header of the optimization list: the AGP version and
- * the R8 mode properties as set (`default` when unset, so AGP's default for that version applies). An AGP
- * upgrade or a changed property then fails `check` once.
+ * What decides how R8 reads the rules, written as the header of the optimization list: the AGP version, the
+ * R8 version when `android.r8.versionOverride` (AGP 9.5+) sets one, and the R8 mode properties as set
+ * (`default` when unset, so AGP's default for that version applies). An AGP upgrade or a changed property
+ * then fails `check` once.
  */
 internal object R8Context {
 
@@ -12,11 +13,14 @@ internal object R8Context {
         "android.r8.strictFullModeForKeepRules",
         "android.r8.globalOptionsInConsumerRules.disallowed",
     )
-    private val KEYS = setOf("agp") + PROPERTIES
+    private const val R8_VERSION = "android.r8.versionOverride"
+    private val KEYS = setOf("agp", R8_VERSION) + PROPERTIES
 
-    /** `# agp=<version>`, then `# <property>=<value>` for each R8 mode property; [property] reads a Gradle property. */
+    /** `# agp=…`, `# android.r8.versionOverride=…` when set, then each R8 mode property; [property] reads a Gradle property. */
     fun lines(agpVersion: String, property: (String) -> String?): List<String> =
-        listOf("# agp=$agpVersion") + PROPERTIES.map { "# $it=${property(it) ?: "default"}" }
+        // AGP trims the override and ignores a blank one.
+        listOfNotNull("# agp=$agpVersion", property(R8_VERSION)?.trim()?.ifEmpty { null }?.let { "# $R8_VERSION=$it" }) +
+            PROPERTIES.map { "# $it=${property(it) ?: "default"}" }
 
     /** The AGP version as AGP writes it: `9.4.1`, `9.5.0-alpha03`, `9.5.0-dev`. */
     fun agpVersion(major: Int, minor: Int, micro: Int, previewType: String?, preview: Int): String =
