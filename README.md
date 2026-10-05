@@ -127,6 +127,11 @@ library:
 - an app-wide option such as `-ignorewarnings`, except `-dontwarn`, `-dontnote`
   and `-keepattributes` with a filter
 
+On AGP 9.5 and later, AGP removes app-wide options such as `-dontobfuscate` and
+`-ignorewarnings` from AARs' consumer rules
+(`android.r8.globalOptionsInConsumerRules.disallowed`, on by default), so they
+are not listed.
+
 A library's rule is not listed when it:
 
 - targets its own packages or another module of its Maven group, without
@@ -157,7 +162,7 @@ rules by origin (Maven versions omitted, so upgrading a library alone does not c
 -keepattributes *
 
 [com.example:analytics]
--dontobfuscate
+-keep class com.google.gson.** { *; }
 ```
 
 and `check` failures show the changed rules under their origin:
@@ -165,7 +170,7 @@ and `check` failures show the changed rules under their origin:
 ```diff
 ProGuard Shield: optimization-blocking rules changed in :app (release).
   [com.example:analytics]
-+ -dontobfuscate
++ -keep class com.google.gson.** { *; }
 ```
 
 Origins are the module path for project dependencies and the module's own

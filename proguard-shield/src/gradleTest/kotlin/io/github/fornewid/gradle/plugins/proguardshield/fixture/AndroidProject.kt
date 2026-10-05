@@ -57,10 +57,7 @@ internal class AndroidProject(
         )
 
         dir.resolve("gradle.properties").writeText(
-            """
-            android.useAndroidX=true
-            org.gradle.jvmargs=-Xmx1g
-            """.trimIndent(),
+            "org.gradle.jvmargs=-Xmx1g",
         )
 
         val androidHome = System.getenv("ANDROID_HOME")
@@ -79,7 +76,7 @@ internal class AndroidProject(
                 buildTypes {
                     release {
                         minifyEnabled true
-                        shrinkResources $shrinkResources
+                        shrinkResources = $shrinkResources
                         proguardFiles(
                             getDefaultProguardFile('proguard-android-optimize.txt'),
                             'proguard-rules.pro'$extraProguardFiles
@@ -99,7 +96,7 @@ internal class AndroidProject(
 
             android {
                 compileSdk 34
-                namespace "io.github.fornewid.test"
+                namespace = "io.github.fornewid.test"
                 defaultConfig {
                     minSdk 23
                     targetSdk 34
@@ -239,7 +236,7 @@ internal class AndroidProject(
 
             android {
                 compileSdk 34
-                namespace "io.github.fornewid.test.feature"
+                namespace = "io.github.fornewid.test.feature"
                 defaultConfig {
                     minSdk 23
                 }
