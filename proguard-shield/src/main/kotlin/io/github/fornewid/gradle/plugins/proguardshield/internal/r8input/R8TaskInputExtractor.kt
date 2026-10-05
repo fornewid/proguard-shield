@@ -35,13 +35,13 @@ internal object R8TaskInputExtractor {
         "Use the full mode instead (full = true, with optimization = false and fullFast = false), " +
             "which runs R8 and uses only public AGP API."
 
-    private val REQUIRED_METHOD_NAMES = listOf(
+    internal val REQUIRED_METHOD_NAMES = listOf(
         "getConfigurationFiles",
         "getGeneratedProguardFile",
     )
 
     /** Getters that only exist on some AGP versions; skipped when absent. */
-    private val OPTIONAL_METHOD_NAMES = listOf(
+    internal val OPTIONAL_METHOD_NAMES = listOf(
         "getKeepRulesFiles", // AGP 9.1+
         "getAaptProguardFiles", // AGP 9.3+
         "getFeatureProguardFiles", // AGP 9.3+

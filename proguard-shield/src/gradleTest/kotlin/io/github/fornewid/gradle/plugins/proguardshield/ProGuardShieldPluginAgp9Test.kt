@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.AndroidProject
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.build
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.buildAndFail
+import io.github.fornewid.gradle.plugins.proguardshield.fixture.R8TaskInputs
 import org.gradle.api.JavaVersion
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -195,11 +196,17 @@ internal class ProGuardShieldPluginAgp9Test {
         }
     }
 
+    @Test
+    fun `every file input of the R8 task is classified on AGP 9`() {
+        newProject().use { R8TaskInputs.assertAllClassified(it) }
+    }
+
     private companion object {
-        const val AGP_VERSION = "9.4.1"
+        // The newest-AGP workflow sets both with -Pagp9Version and -Pagp9GradleVersion.
+        val AGP_VERSION: String = System.getProperty("agp9Version") ?: "9.4.1"
 
         // AGP 9.4.1 requires Gradle 9.6.0+.
-        const val GRADLE_VERSION = "9.6.1"
+        val GRADLE_VERSION: String = System.getProperty("agp9GradleVersion") ?: "9.6.1"
 
         const val FULL_BASELINE = "proguardShield/releaseFullRules.txt"
         const val FULL_FAST_BASELINE = "proguardShield/releaseFullFastRules.txt"

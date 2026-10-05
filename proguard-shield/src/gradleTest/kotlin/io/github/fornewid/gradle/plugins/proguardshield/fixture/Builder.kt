@@ -23,7 +23,9 @@ internal object Builder {
         // Do NOT use withPluginClasspath() - AGP classloader isolation issues.
         // Plugin JAR is injected via buildscript classpath in the test project.
         withProjectDir(project.dir)
-        withArguments(args.toList() + "-s")
+        // The newest-AGP workflow also runs the tests as a later AGP version would behave (-PsimulateAgpVersion).
+        val simulate = System.getProperty("simulateAgpVersion")?.let { "-Pandroid.simulateAgpVersionBehavior=$it" }
+        withArguments(args.toList() + listOfNotNull("-s", simulate))
         project.gradleVersion?.let { withGradleVersion(it) }
     }
 }

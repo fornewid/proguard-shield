@@ -103,6 +103,9 @@ testing {
 
 gradlePlugin.testSourceSets(sourceSets.named("gradleTest").get())
 
+// gradleTest sees internal code too: R8TaskInputs reads the getters R8TaskInputExtractor reads.
+kotlin.target.compilations.getByName("gradleTest").associateWith(kotlin.target.compilations.getByName("main"))
+
 // Pass the plugin JAR path to gradleTest for buildscript classpath injection.
 // We avoid withPluginClasspath() due to AGP classloader isolation issues.
 //
@@ -118,6 +121,10 @@ afterEvaluate {
     dependsOn(jarTask)
     systemProperty("pluginJar", jarTask.archiveFile.get().asFile.absolutePath)
     systemProperty("agpVersion", agpVersionForTests)
+    // ProGuardShieldPluginAgp9Test's versions and an AGP version to simulate, set by newest-agp.yml.
+    listOf("agp9Version", "agp9GradleVersion", "simulateAgpVersion").forEach { name ->
+      project.findProperty(name)?.let { systemProperty(name, it) }
+    }
   }
 }
 
