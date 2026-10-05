@@ -19,6 +19,8 @@ ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :sample:app:proguardShieldVerif
 ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :proguard-shield:gradleTest
 ```
 
+The gradleTest guard `R8TaskInputs` fails when an AGP version adds a file input to the R8 task.
+
 ## Build & Test Commands
 
 ```bash
@@ -65,8 +67,9 @@ The repo is a Gradle **included build**: the root project pulls in the plugin mo
 
 Distribution targets: Maven Central (via Sonatype Central Portal) and the Gradle Plugin Portal. The full release runbook — required GitHub secrets, workflow triggers, smoke tests — lives in [`RELEASING.md`](RELEASING.md).
 
-Quick reference of the four workflows:
+Quick reference of the workflows:
 - `build.yml` — on push to `main` + every PR. Runs `:proguard-shield:check` plus an AGP version matrix.
 - `publish.yml` — on push to `main`. Skips `-SNAPSHOT` versions. Publishes to both registries, tags the commit, bumps to the next `-SNAPSHOT`.
 - `release.yml` — manual `workflow_dispatch`. Opens a PR that strips `-SNAPSHOT`.
 - `release-drafter.yml` — updates the draft GitHub Release on every main push / tag.
+- `newest-agp.yml` — weekly + manual. Runs the AGP 9 gradleTests on the newest AGP and Gradle (previews included), also as AGP 10 would behave.

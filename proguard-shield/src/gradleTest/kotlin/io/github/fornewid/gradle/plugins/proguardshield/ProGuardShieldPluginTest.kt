@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.AndroidProject
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.build
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.buildAndFail
+import io.github.fornewid.gradle.plugins.proguardshield.fixture.R8TaskInputs
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Test
 
@@ -674,6 +675,11 @@ internal class ProGuardShieldPluginTest {
             assertThat(result.output).contains("Reusing configuration cache.")
             assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo("[com.example:sdk]\n-dontobfuscate\n")
         }
+    }
+
+    @Test
+    fun `every file input of the R8 task is classified`() {
+        AndroidProject().use { R8TaskInputs.assertAllClassified(it) }
     }
 
     /**
