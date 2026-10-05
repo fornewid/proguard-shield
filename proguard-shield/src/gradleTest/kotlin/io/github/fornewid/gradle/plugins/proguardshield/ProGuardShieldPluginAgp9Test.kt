@@ -110,6 +110,17 @@ internal class ProGuardShieldPluginAgp9Test {
     }
 
     @Test
+    fun `fullFast reads the JaCoCo rules AGP passes to R8 on AGP 9`() {
+        // AGP adds them as strings, not files, when the minified build type is tested with coverage.
+        newProject(releaseExtra = "enableAndroidTestCoverage = true").use { project ->
+            project.appendToAppBuildFile("android.testBuildType = 'release'")
+
+            assertThat(build(project, ":app:proguardShieldVerifyParity").output).contains("parity holds")
+            assertThat(project.readBaselineFile(FULL_FAST_BASELINE)).contains("org.jacoco")
+        }
+    }
+
+    @Test
     fun `fullFast drops consumer rules ignored via ignoreFrom on AGP 9`() {
         newProject(
             releaseExtra = """

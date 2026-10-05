@@ -495,6 +495,31 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
+    fun `optimization and fullFast read the rules AGP passes to R8 as strings`() {
+        AndroidProject(
+            pluginConfig = """
+                proguardShield {
+                    configuration("release") {
+                        full = true
+                        fullFast = true
+                        tree = true
+                    }
+                }
+            """.trimIndent(),
+        ).use { project ->
+            // Stands in for AGP, which passes some rules this way (JaCoCo's keeps when testing with coverage).
+            project.appendToAppBuildFile(
+                "afterEvaluate { tasks.named('minifyReleaseWithR8').configure { proguardConfigurations.add('-dontoptimize') } }",
+            )
+
+            val result = build(project, ":app:proguardShieldOptimizationBaseline", ":app:proguardShieldVerifyParity")
+
+            assertThat(result.output).contains("parity holds")
+            assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo("[<agp>]\n-dontoptimize\n")
+        }
+    }
+
+    @Test
     fun `optimization list starts with the AGP version and R8 mode properties`() {
         AndroidProject().use { project ->
             build(project, ":app:proguardShieldOptimizationBaseline")

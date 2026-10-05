@@ -171,8 +171,8 @@ ProGuard Shield: optimization-blocking rules changed in :app (release).
 Origins are the module path for project dependencies and the module's own
 files, `group:artifact` for external libraries, the file name for file
 dependencies (`files("libs/x.aar")` → `x.aar`), `<agp>` for the AGP default
-rule file, and `<unresolved>` for anything else, such as the rules of dynamic
-feature modules. Libraries excluded with AGP's
+rule file and the rules AGP adds itself, and `<unresolved>` for anything else,
+such as the rules of dynamic feature modules. Libraries excluded with AGP's
 `optimization.keepRules.ignoreFrom` are skipped, like R8 does.
 
 ## Forbidden patterns
@@ -231,6 +231,8 @@ proguardShield {
 - On AGP 9.3+, the optimization and fullFast modes read the rules of dynamic
   feature modules again. If `check` fails after the upgrade, re-run the
   baselines and commit the result.
+- The optimization and fullFast modes also read the rules AGP passes to R8 as
+  strings (JaCoCo's keep rules when testing a minified build with coverage).
 
 ## Migrating from 0.0.7
 
