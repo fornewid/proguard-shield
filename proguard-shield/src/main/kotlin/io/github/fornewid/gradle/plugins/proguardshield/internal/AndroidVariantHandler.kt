@@ -147,9 +147,11 @@ internal object AndroidVariantHandler {
             val injectProFile = variantOutputDir.map { it.file("inject.pro") }
 
             val injectTask = project.tasks.register(injectTaskName, GenerateInjectedRulesTask::class.java) {
-                mergedRulesPath.set(mergedRulesFile.map { it.asFile.absolutePath })
+                mergedRulesPath.set(mergedRulesFile.map { it.asFile.name })
                 outputProFile.set(injectProFile)
             }
+            // R8's output too: a FROM-CACHE R8 restores it, and AGP deletes it before R8 runs, so it is never stale.
+            project.tasks.configureEach { if (name == minifyTaskName) outputs.file(mergedRulesFile) }
 
             // Include the generated `.pro` in R8's input list. Only variants that
             // enable full get it, so the other modes leave R8's inputs (and its

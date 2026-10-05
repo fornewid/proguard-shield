@@ -15,7 +15,7 @@ import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 
@@ -32,8 +32,8 @@ internal abstract class ProGuardShieldListTask : DefaultTask() {
         group = ProGuardShieldPlugin.PROGUARD_SHIELD_TASK_GROUP
     }
 
-    /** R8 `-printconfiguration` output, produced by `minify{Variant}WithR8`. */
-    @get:InputFile
+    /** R8 `-printconfiguration` output, produced by `minify{Variant}WithR8`; missing if another one took precedence. */
+    @get:InputFiles
     abstract val mergedRulesFile: RegularFileProperty
 
     @get:Input
@@ -69,7 +69,15 @@ internal abstract class ProGuardShieldListTask : DefaultTask() {
         val dir = baselineDir.get()
         val prefix = filePrefix.get()
 
-        val rawContent = mergedRulesFile.get().asFile.readText()
+        val mergedRules = mergedRulesFile.get().asFile
+        if (!mergedRules.exists()) {
+            throw GradleException(
+                "ProGuard Shield: R8 did not write ${mergedRules.name} for $path ($configName). Most likely " +
+                    "another -printconfiguration in the rules R8 reads took precedence over the one ProGuard Shield " +
+                    "adds, for example in a library's consumer rules. Remove it to use the full mode.",
+            )
+        }
+        val rawContent = mergedRules.readText()
         val units = RuleNormalizer.normalizeUnits(rawContent)
         val normalized = units.flatten().joinToString("\n")
 

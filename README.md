@@ -99,7 +99,9 @@ Each `configuration(...)` turns modes on and off with the flags in
 (and their `…Baseline` counterparts) run the mode for every configuration that
 enables it, and do nothing otherwise.
 Only full runs R8: it adds a `-printconfiguration` file to R8's inputs for the
-variants that enable it, and the other modes leave R8's inputs untouched. full is
+variants that enable it, and the other modes leave R8's inputs untouched. R8's
+build cache still works across checkouts, but an app's own `-printconfiguration`
+file is not written while full is on. full is
 the reference — it uses only public AGP API and records exactly what R8 prints.
 
 ## Optimization-blocking rules

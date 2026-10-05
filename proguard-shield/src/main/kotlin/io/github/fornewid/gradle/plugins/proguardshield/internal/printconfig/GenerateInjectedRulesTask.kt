@@ -11,6 +11,8 @@ import org.gradle.api.tasks.TaskAction
  * Writes a generated `.pro` file containing a single `-printconfiguration <path>`
  * directive. The file is added to `variant.proguardFiles`, so when R8 runs it
  * emits the fully-merged rule set to [mergedRulesPath] for the shield task to diff.
+ * The path is relative: R8 resolves it against this file's directory, so the
+ * file's content (part of R8's cache key) does not depend on where the project lives.
  */
 internal abstract class GenerateInjectedRulesTask : DefaultTask() {
 
