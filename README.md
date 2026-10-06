@@ -91,7 +91,7 @@ Each `configuration(...)` turns modes on and off with the flags in
 
 | Mode | Default | Tasks | Baseline file | On `check` | AGP coupling |
 |---|---|---|---|---|---|
-| optimization | on | `proguardShieldOptimization{Variant}`, `proguardShieldOptimizationBaseline{Variant}` | `<variant>OptimizationBlockingRules.txt` (+ `.tree.txt`) | yes | AGP internal class (`ProguardConfigurableTask`) |
+| optimization | on | `proguardShieldOptimization{Variant}`, `proguardShieldOptimizationBaseline{Variant}` | `<variant>OptimizationBlockingRules.txt` (+ `.tree.txt`) | yes | AGP internal artifact type, two R8 task values |
 | fullFast | off | `proguardShieldFullFast{Variant}`, `proguardShieldFullFastBaseline{Variant}` | `<variant>FullFastRules.txt` | yes | AGP internal class (`ProguardConfigurableTask`) |
 | full | off | `proguardShieldFull{Variant}`, `proguardShieldFullBaseline{Variant}` | `<variant>FullRules.txt` | no | public AGP API only |
 
@@ -106,7 +106,15 @@ the reference — it uses only public AGP API and records exactly what R8 prints
 
 ## Optimization-blocking rules
 
-The optimization mode lists these rules:
+The optimization mode reads the rules that exist without compiling the variant,
+so `check` doesn't compile it: the app's rule files and AGP's default file,
+keep-rule source sets (AGP 9.1+), external libraries' consumer rules (Maven
+modules and AAR/JAR files), and the rules AGP passes to R8 as strings. It
+doesn't read the consumer rules of the project's own modules, including dynamic
+feature modules, rules generated while compiling, or AAPT2 rules: those exist
+only after compiling or processing resources.
+
+It lists these rules:
 
 - `-dontobfuscate`, `-dontshrink`, `-dontoptimize`
 - `-keepattributes` with no filter or a bare `*`
@@ -174,11 +182,11 @@ ProGuard Shield: optimization-blocking rules changed in :app (release).
 + -keep class com.google.gson.** { *; }
 ```
 
-Origins are the module path for project dependencies and the module's own
-files, `group:artifact` for external libraries, the file name for file
-dependencies (`files("libs/x.aar")` → `x.aar`), `<agp>` for the AGP default
-rule file and the rules AGP adds itself, and `<unresolved>` for anything else,
-such as the rules of dynamic feature modules. Libraries excluded with AGP's
+Origins are the module path for the module's own files (`:app`),
+`group:artifact` for external libraries, the file name for file dependencies
+(`files("libs/x.aar")` → `x.aar`), `<agp>` for the AGP default rule file and
+the rules AGP adds itself, and `<unresolved>` for anything else, such as a rule
+file outside the module. Libraries excluded with AGP's
 `optimization.keepRules.ignoreFrom` are skipped, like R8 does.
 
 ## Forbidden patterns
@@ -231,6 +239,13 @@ proguardShield {
 | `fullFast` | `false` | Keep a full rule baseline read from R8's inputs without running R8. On `check`. |
 | `full` | `false` | Keep a full rule baseline as R8 prints it (runs R8, public AGP API only). Not on `check`. |
 | `forbiddenPatterns` | `[]` | Regex patterns that fail the full / fullFast modes whenever a matching rule appears. |
+
+## Migrating from 0.0.10
+
+- The optimization mode no longer compiles the variant, so it skips the sources
+  listed under [Optimization-blocking rules](#optimization-blocking-rules). If
+  `check` fails once, run `./gradlew proguardShieldOptimizationBaseline` and
+  commit the result.
 
 ## Migrating from 0.0.9
 
@@ -297,8 +312,9 @@ Rename the committed baseline files (`git mv`), or regenerate them with
 ProGuard Shield compares the text of the merged rule set. An AGP upgrade or an R8
 mode property change fails `check` once, but it cannot tell what the change does
 to R8's output, or whether your rules are sufficient (new reflection without a
-matching keep rule produces no diff). An R8 version set apart from AGP's is not
-recorded. After such changes, test your release build.
+matching keep rule produces no diff). An R8 version set apart from AGP's is
+recorded only through `android.r8.versionOverride`. After such changes, test
+your release build.
 
 ## Requirements
 

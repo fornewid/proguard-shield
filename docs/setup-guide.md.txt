@@ -80,10 +80,13 @@ initial setup and commit the file, even if it lists no rules.
 
     ./gradlew check
 
-`check` runs `proguardShieldOptimization{Variant}` without invoking R8. When an
-optimization-blocking rule appears or disappears, the build fails with the rule
-diff; with `tree = true` the diff is grouped under the library that adds each
-rule. To accept the change, re-run
+`check` runs `proguardShieldOptimization{Variant}` without invoking R8 or
+compiling the variant. It reads the app's rule files, keep-rule source sets and
+external libraries' consumer rules; the consumer rules of the project's own
+modules, rules generated while compiling and AAPT2 rules are out of its scope.
+When an optimization-blocking rule appears or disappears, the build fails with
+the rule diff; with `tree = true` the diff is grouped under the library that
+adds each rule. To accept the change, re-run
 `./gradlew proguardShieldOptimizationBaseline`.
 
 **AI Agent**: Before re-baselining, show the user which library added the rule
@@ -144,12 +147,14 @@ the configuration block.
   has product flavors. Pass the full variant name (e.g. `freeRelease`), one
   `configuration(...)` per variant.
 - **Library modules**: applying the plugin to a `com.android.library` module
-  is unsupported. Library modules don't run R8 themselves; their consumer
-  rules show up in the application module's baseline, which is where the
-  plugin must live.
+  is unsupported. Library modules don't run R8 themselves, so the plugin lives
+  in the application module.
 - **`isMinifyEnabled = false`**: the plugin requires the target variant to
   have minification enabled. The plugin throws a configuration-time error
   if not, naming the variant.
+- **Upgrading from 0.0.10**: the optimization mode no longer compiles the
+  variant, so it skips the sources listed in Step 3. If `check` fails after the
+  upgrade, re-run `proguardShieldOptimizationBaseline` and commit the result.
 - **Upgrading from 0.0.9**: on AGP 9.3+, the optimization and fullFast modes
   read the rules of dynamic feature modules again, and both modes also read
   the rules AGP passes to R8 as strings (JaCoCo's keep rules when testing a

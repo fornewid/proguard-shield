@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.AndroidProject
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.build
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.buildAndFail
+import io.github.fornewid.gradle.plugins.proguardshield.fixture.R8Oracle
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.R8TaskInputs
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Test
@@ -471,6 +472,51 @@ internal class ProGuardShieldPluginTest {
             assertThat(project.baselineFileExists(OPTIMIZATION_TREE)).isFalse()
             assertThat(project.baselineFileExists(FULL_BASELINE)).isFalse()
             assertThat(project.baselineFileExists(FULL_FAST_BASELINE)).isFalse()
+        }
+    }
+
+    @Test
+    fun `optimization compiles neither the app nor its modules`() {
+        AndroidProject(pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG).use { project ->
+            // Out of scope: a module's consumer rules only exist once it compiles (AGP merges in the generated ones).
+            project.addLibraryModule(consumerRules = "-keep class ** { *; }")
+
+            val tasks = build(project, ":app:proguardShieldOptimizationBaseline").tasks.map { it.path }
+            assertThat(tasks).containsExactly(
+                ":app:preBuild",
+                ":app:extractProguardFiles",
+                ":app:proguardShieldOptimizationBaselineRelease",
+                ":app:proguardShieldOptimizationBaseline",
+            )
+            assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEmpty()
+        }
+    }
+
+    @Test
+    fun `optimization lists the blocking rules R8 reads from the app and libraries`() {
+        AndroidProject(
+            proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keepattributes *",
+            pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG,
+            dependencies = """
+                implementation 'com.example:aar:1.0'
+                implementation 'com.example:jar:1.0'
+                implementation files('libs/local.aar')
+            """.trimIndent(),
+        ).use { project ->
+            project.publishLocalAar("com.example", "aar", "1.0", "-keep class ** { *; }")
+            project.publishLocalJar("com.example", "jar", "1.0", "-keepnames class **")
+            project.writeAppLibsAar("local.aar", "-keepclasseswithmembers class * { *; }")
+            // Read by R8 but out of the optimization mode's scope, so not listed.
+            project.addLibraryModule(consumerRules = "-keepclassmembers class * { *; }")
+            project.appendToAppBuildFile(
+                "afterEvaluate { tasks.named('minifyReleaseWithR8').configure { proguardConfigurations.add('-dontoptimize') } }",
+            )
+
+            R8Oracle.assertOptimizationListMatchesR8(project, OPTIMIZATION_LIST)
+            // Each source contributes one: AGP's string rules, the AAR, the app, the file AAR, the JAR.
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo(
+                "-dontoptimize\n-keep class ** { *; }\n-keepattributes *\n-keepclasseswithmembers class * { *; }\n-keepnames class **\n",
+            )
         }
     }
 

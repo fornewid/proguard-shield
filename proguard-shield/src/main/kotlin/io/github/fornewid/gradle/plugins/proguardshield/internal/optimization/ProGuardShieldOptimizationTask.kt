@@ -28,8 +28,10 @@ import java.io.File
  * when enabled). External libraries' rules that reach code outside the library
  * are listed too (LibraryRuleMatcher).
  *
- * Reads R8's inputs through the same AGP-internal accessors as the fullFast
- * mode, without running R8 and without adding anything to R8's inputs.
+ * Reads the rules R8 reads that exist without compiling the variant: the app's
+ * rule files and AGP's default file, keep-rule source sets, external libraries'
+ * keep rules, and the rules AGP passes to R8 as strings. Doesn't run R8 or add
+ * anything to its inputs.
  */
 internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
 
@@ -37,7 +39,7 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
         group = ProGuardShieldPlugin.PROGUARD_SHIELD_TASK_GROUP
     }
 
-    /** Files that R8 would consume — wired from AGP's `ProguardConfigurableTask`. */
+    /** Rule files R8 reads that exist without compiling. */
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val ruleInputs: ConfigurableFileCollection

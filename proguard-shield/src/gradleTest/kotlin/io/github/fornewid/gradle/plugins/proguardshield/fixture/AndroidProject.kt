@@ -256,6 +256,29 @@ internal class AndroidProject(
         featureDir.resolve("src/main").apply { mkdirs() }.resolve("AndroidManifest.xml").writeText("<manifest />")
     }
 
+    /** Adds a `:lib` Android library module, which the app depends on, shipping [consumerRules]. */
+    fun addLibraryModule(consumerRules: String) {
+        dir.resolve("settings.gradle").appendText("\ninclude ':lib'\n")
+        appendToAppBuildFile("dependencies { implementation project(':lib') }")
+        val libDir = dir.resolve("lib").apply { mkdirs() }
+        libDir.resolve("build.gradle").writeText(
+            """
+            apply plugin: 'com.android.library'
+
+            android {
+                compileSdk 34
+                namespace = "io.github.fornewid.test.lib"
+                defaultConfig {
+                    minSdk 23
+                    consumerProguardFiles 'consumer-rules.pro'
+                }
+            }
+            """.trimIndent(),
+        )
+        libDir.resolve("consumer-rules.pro").writeText(consumerRules)
+        libDir.resolve("src/main").apply { mkdirs() }.resolve("AndroidManifest.xml").writeText("<manifest />")
+    }
+
     fun appendToAppBuildFile(text: String) {
         dir.resolve("app/build.gradle").appendText("\n$text\n")
     }
