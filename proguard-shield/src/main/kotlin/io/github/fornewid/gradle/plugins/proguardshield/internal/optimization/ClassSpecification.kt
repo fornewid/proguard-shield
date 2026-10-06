@@ -38,7 +38,7 @@ internal class ClassNamePattern(val text: String) {
 }
 
 /**
- * The parts of a keep or assume rule that decide what it reaches: `-<directive>[,<modifiers>] [@annotation]
+ * The parts of a keep rule that decide what it reaches: `-<directive>[,<modifiers>] [@annotation]
  * [modifiers] class|interface|enum|@interface <names> [extends|implements <type>] [{ <members> }]`.
  */
 internal data class ClassSpecification(
@@ -58,20 +58,16 @@ internal data class ClassSpecification(
             "keep", "keepnames", "keepclassmembers", "keepclassmembernames",
             "keepclasseswithmembers", "keepclasseswithmembernames",
         )
-        val ASSUME_DIRECTIVES = setOf(
-            "assumenosideeffects", "assumevalues", "assumenoexternalsideeffects",
-            "assumenoescapingarguments", "assumenoexternalreturnvalues",
-        )
         private val DIRECTIVE = Regex("^-([A-Za-z]+)((?:\\s*,\\s*[A-Za-z]+)*)\\s+(.+)$")
         private val WHITESPACE = Regex("\\s+")
         private val CLASS_KEYWORDS = setOf("class", "interface", "enum", "@interface")
 
-        /** Parses a keep or assume rule unit; null for any other rule or one it cannot read. */
+        /** Parses a keep rule unit; null for any other rule or one it cannot read. */
         fun parse(unit: List<String>): ClassSpecification? {
             val text = unit.joinToString(" ").trim()
             val match = DIRECTIVE.find(text.substringBefore('{').trim()) ?: return null
             val directive = match.groupValues[1]
-            if (directive !in KEEP_DIRECTIVES && directive !in ASSUME_DIRECTIVES) return null
+            if (directive !in KEEP_DIRECTIVES) return null
             val tokens = match.groupValues[3].split(WHITESPACE)
             val keyword = tokens.indexOfFirst { it.removePrefix("!") in CLASS_KEYWORDS }
             if (keyword < 0) return null

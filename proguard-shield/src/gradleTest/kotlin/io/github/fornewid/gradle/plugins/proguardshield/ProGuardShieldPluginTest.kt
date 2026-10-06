@@ -248,13 +248,14 @@ internal class ProGuardShieldPluginTest {
 
             build(project, ":app:proguardShieldOptimizationBaseline")
 
+            // -ignorewarnings is an app-wide option, but it doesn't reduce what R8 does.
             assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo(
-                "-ignorewarnings\n-keep class com.google.gson.** { *; }\n-keep class io.github.fornewid.** { *; }\n" +
+                "-keep class com.google.gson.** { *; }\n-keep class io.github.fornewid.** { *; }\n" +
                     "-keep class okhttp3.** { *; }\n-keep class okio.** { *; }\n",
             )
             assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo(
                 "[com.jarvendor:util]\n-keep class okio.** { *; }\n\n" +
-                    "[com.vendor:sdk]\n-ignorewarnings\n-keep class com.google.gson.** { *; }\n\n" +
+                    "[com.vendor:sdk]\n-keep class com.google.gson.** { *; }\n\n" +
                     "[io.github.fornewid:core]\n-keep class io.github.fornewid.** { *; }\n\n" +
                     "[vendor-file.aar]\n-keep class okhttp3.** { *; }\n",
             )

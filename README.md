@@ -120,12 +120,12 @@ library:
   `-keep class androidx.recyclerview.widget.RecyclerView { *; }`
 - every class that extends or implements a type outside the library:
   `-keep class * extends android.app.Activity`
-- `-assumenosideeffects`, `-assumevalues`
-- an app-wide option such as `-ignorewarnings`, except `-dontwarn`, `-dontnote`
-  and `-keepattributes` with a filter
+- an app-wide option that reduces what R8 does: `-keepparameternames`,
+  `-keepkotlinmetadata`, `-dontrepackage`, or `-keeppackagenames` reaching
+  other packages
 
 On AGP 9.5 and later, AGP removes app-wide options such as `-dontobfuscate` and
-`-ignorewarnings` from AARs' consumer rules
+`-dontrepackage` from AARs' consumer rules
 (`android.r8.globalOptionsInConsumerRules.disallowed`, on by default), so they
 are not listed.
 
@@ -138,6 +138,9 @@ A library's rule is not listed when it:
 - keeps a single named class without members, or lists only some members:
   `-keep class kotlin.Metadata`, `{ <init>(); }`, `{ volatile <fields>; }`
 - has both `allowshrinking` and `allowobfuscation`
+- is an `-assume*` rule, or an app-wide option that doesn't reduce what R8 does,
+  such as `-ignorewarnings`, `-printmapping`, `-repackageclasses` or an option
+  R8 ignores
 
 The list starts with what decides how R8 reads these rules: the AGP version, the
 R8 version when `android.r8.versionOverride` sets one (AGP 9.5+), and the R8
@@ -149,7 +152,7 @@ mode properties as set (`default` when unset).
 # android.r8.strictFullModeForKeepRules=default
 # android.r8.globalOptionsInConsumerRules.disallowed=default
 
--ignorewarnings
+-keep class com.google.gson.** { *; }
 ```
 
 With `tree = true`, `<variant>OptimizationBlockingRules.tree.txt` groups the
@@ -194,6 +197,13 @@ proguardShield {
 | `baselineDir` | `"proguardShield"` | Directory (relative to the module) where baseline files are written. |
 | `optimization` | `true` | Track optimization-blocking rules (with their origins when `tree = true`). On `check`. `false` registers no tasks for this configuration. |
 | `tree` | `false` | Also write the by-origin tree. |
+
+## Migrating from 0.0.11
+
+- `-assume*` rules and app-wide options that don't reduce what R8 does, such as
+  `-printconfiguration` and `-ignorewarnings`, are no longer listed. If `check`
+  fails once, run `./gradlew proguardShieldOptimizationBaseline` and commit the
+  result.
 
 ## Migrating from 0.0.10
 
