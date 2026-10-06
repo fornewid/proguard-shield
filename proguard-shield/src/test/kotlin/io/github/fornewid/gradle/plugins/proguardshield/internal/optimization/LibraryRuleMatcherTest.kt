@@ -78,6 +78,7 @@ class LibraryRuleMatcherTest {
             "-assumenosideeffects class android.util.Log { *; }",
             "-assumevalues class com.google.gson.Gson { boolean DEBUG return false; }",
             "-ignorewarnings",
+            "-printconfiguration rules.txt",
             "-repackageclasses",
             "-keeppackagenames com.google.**",
             "-keeppackagenames",

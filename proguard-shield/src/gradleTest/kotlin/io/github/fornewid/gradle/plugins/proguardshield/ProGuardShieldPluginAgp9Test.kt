@@ -3,7 +3,6 @@ package io.github.fornewid.gradle.plugins.proguardshield
 import com.google.common.truth.Truth.assertThat
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.AndroidProject
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.build
-import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.buildAndFail
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.R8Oracle
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.R8TaskInputs
 import org.gradle.api.JavaVersion
@@ -28,7 +27,7 @@ internal class ProGuardShieldPluginAgp9Test {
 
     private fun newProject(
         proguardRules: String = AndroidProject.DEFAULT_PROGUARD_RULES,
-        pluginConfig: String = AndroidProject.DEFAULT_PLUGIN_CONFIG,
+        pluginConfig: String = AndroidProject.MINIMAL_PLUGIN_CONFIG,
         releaseExtra: String = "",
         dependencies: String = "",
     ) = AndroidProject(
@@ -41,90 +40,28 @@ internal class ProGuardShieldPluginAgp9Test {
     )
 
     @Test
-    fun `full baseline task writes the full baseline on AGP 9`() {
-        newProject().use { project ->
-            val result = build(project, ":app:proguardShieldFullBaselineRelease")
-
-            assertThat(result.output).contains("ProGuard Shield baseline created")
-            assertThat(project.readBaselineFile(FULL_BASELINE)).contains("-keepattributes")
-        }
-    }
-
-    @Test
-    fun `fullFast baseline task writes the fullFast baseline on AGP 9`() {
-        newProject().use { project ->
-            val result = build(project, ":app:proguardShieldFullFastBaselineRelease")
-
-            assertThat(result.output).contains("ProGuard Shield baseline created")
-            assertThat(project.readBaselineFile(FULL_FAST_BASELINE)).contains("-keepattributes")
-            assertThat(result.task(":app:minifyReleaseWithR8")).isNull()
-        }
-    }
-
-    @Test
-    fun `guard passes when rules have not changed on AGP 9`() {
-        newProject().use { project ->
-            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
-
-            val result = build(project, ":app:proguardShieldFull")
-            assertThat(result.output).doesNotContain("rules changed")
-        }
-    }
-
-    @Test
-    fun `fullFast guard fails when a new rule is added on AGP 9`() {
-        newProject().use { project ->
-            build(project, ":app:proguardShieldFullBaseline", ":app:proguardShieldFullFastBaseline")
-
-            project.updateProguardRules(
-                AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keep class com.example.Added { *; }",
-            )
-
-            val result = buildAndFail(project, ":app:proguardShieldFullFastRelease")
-            assertThat(result.output).contains("rules changed")
-            assertThat(result.output).contains("-keep class com.example.Added")
-        }
-    }
-
-    @Test
-    fun `verifyParity passes on AGP 9`() {
+    fun `optimization matches R8 for a library's -dontobfuscate on AGP 9`() {
         newProject(dependencies = "implementation 'com.example:global:1.0'").use { project ->
-            // AGP 9.5+ removes this before R8 reads it. Either way, fullFast must read what R8 reads.
+            // AGP 9.5+ removes it before R8 reads it. Either way, the list must match what R8 reads.
             project.publishLocalAar("com.example", "global", "1.0", "-dontobfuscate")
 
-            val result = build(project, ":app:proguardShieldVerifyParity")
-            assertThat(result.output).contains("parity holds")
-            // Resource shrinking is off, so AAPT2 keeps MainActivity through AGP 9.3+'s own input (#30).
-            assertThat(project.readBaselineFile(FULL_FAST_BASELINE)).contains("MainActivity")
+            R8Oracle.assertOptimizationListMatchesR8(project, OPTIMIZATION_LIST)
         }
     }
 
     @Test
-    fun `dynamic feature rules reach fullFast but not optimization on AGP 9`() {
-        // AGP 9.3+ passes them through their own input (#55).
+    fun `optimization leaves out dynamic feature rules on AGP 9`() {
+        // AGP 9.3+ passes them through their own input (#55). They are a module's rules, which only exist once it compiles.
         newProject().use { project ->
             project.addDynamicFeature("-keepnames class **")
 
-            val result = build(project, ":app:proguardShieldOptimizationBaseline", ":app:proguardShieldVerifyParity")
-            assertThat(result.output).contains("parity holds")
+            build(project, ":app:proguardShieldOptimizationBaseline")
             assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
-            assertThat(project.readBaselineFile(FULL_FAST_BASELINE)).contains("-keepnames class **")
         }
     }
 
     @Test
-    fun `fullFast reads the JaCoCo rules AGP passes to R8 on AGP 9`() {
-        // AGP adds them as strings, not files, when the minified build type is tested with coverage.
-        newProject(releaseExtra = "enableAndroidTestCoverage = true").use { project ->
-            project.appendToAppBuildFile("android.testBuildType = 'release'")
-
-            assertThat(build(project, ":app:proguardShieldVerifyParity").output).contains("parity holds")
-            assertThat(project.readBaselineFile(FULL_FAST_BASELINE)).contains("org.jacoco")
-        }
-    }
-
-    @Test
-    fun `fullFast drops consumer rules ignored via ignoreFrom on AGP 9`() {
+    fun `optimization ignores libraries excluded via ignoreFrom on AGP 9`() {
         newProject(
             releaseExtra = """
                 optimization {
@@ -138,15 +75,12 @@ internal class ProGuardShieldPluginAgp9Test {
                 implementation 'com.example:kept:1.0'
             """.trimIndent(),
         ).use { project ->
-            project.publishLocalAar("com.example", "ignored", "1.0", "-keep class com.example.ignored.Marker")
-            project.publishLocalAar("com.example", "kept", "1.0", "-keep class com.example.kept.Marker")
+            project.publishLocalAar("com.example", "ignored", "1.0", "-keepattributes *")
+            project.publishLocalAar("com.example", "kept", "1.0", "-keepnames class **")
 
-            val result = build(project, ":app:proguardShieldVerifyParity")
+            R8Oracle.assertOptimizationListMatchesR8(project, OPTIMIZATION_LIST)
 
-            assertThat(result.output).contains("parity holds")
-            val fast = project.readBaselineFile(FULL_FAST_BASELINE)!!
-            assertThat(fast).contains("com.example.kept.Marker")
-            assertThat(fast).doesNotContain("com.example.ignored.Marker")
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keepnames class **\n")
         }
     }
 
@@ -160,10 +94,13 @@ internal class ProGuardShieldPluginAgp9Test {
             // Not a -keep of every class: R8 would then keep all of the Kotlin stdlib AGP 9 adds, which is slow.
             project.publishLocalAar("com.example", "aar", "1.0", "-keepclassmembers class * { *; }")
             project.dir.resolve("app/src/main/keepRules").apply { mkdirs() }.resolve("app.keep").writeText("-keepnames class **")
+            project.appendToAppBuildFile(
+                "afterEvaluate { tasks.named('minifyReleaseWithR8').configure { proguardConfigurations.add('-dontoptimize') } }",
+            )
 
             R8Oracle.assertOptimizationListMatchesR8(project, OPTIMIZATION_LIST)
             assertThat(project.readOptimizationRules(OPTIMIZATION_LIST))
-                .isEqualTo("-keepattributes *\n-keepclassmembers class * { *; }\n-keepnames class **\n")
+                .isEqualTo("-dontoptimize\n-keepattributes *\n-keepclassmembers class * { *; }\n-keepnames class **\n")
         }
     }
 
@@ -224,8 +161,6 @@ internal class ProGuardShieldPluginAgp9Test {
         // AGP 9.4.1 requires Gradle 9.6.0+.
         val GRADLE_VERSION: String = System.getProperty("agp9GradleVersion") ?: "9.6.1"
 
-        const val FULL_BASELINE = "proguardShield/releaseFullRules.txt"
-        const val FULL_FAST_BASELINE = "proguardShield/releaseFullFastRules.txt"
         const val OPTIMIZATION_LIST = "proguardShield/releaseOptimizationBlockingRules.txt"
         const val OPTIMIZATION_TREE = "proguardShield/releaseOptimizationBlockingRules.tree.txt"
     }

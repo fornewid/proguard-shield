@@ -1,6 +1,5 @@
 package io.github.fornewid.gradle.plugins.proguardshield.internal.r8input
 
-import org.gradle.api.GradleException
 import org.gradle.api.Task
 import org.gradle.api.artifacts.ArtifactCollection
 import org.gradle.api.artifacts.component.ComponentIdentifier
@@ -10,15 +9,13 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Provider
 
 /**
- * Reproduces AGP's `optimization.keepRules` ignore filter for the fullFast and optimization modes.
- *
- * `ProguardConfigurableTask.configurationFiles` holds every library's consumer
- * rules unfiltered; AGP drops the ignored ones only when R8 runs (8.x in
- * `R8Task`, 9.x in `ProguardConfigurableTask.obtainKeepRules`, via
+ * Reproduces AGP's `optimization.keepRules` ignore filter for the optimization
+ * mode. AGP drops the ignored libraries' consumer rules only when R8 runs (8.x
+ * in `R8Task`, 9.x in `ProguardConfigurableTask.obtainKeepRules`, via
  * `getFilteredConfigurationFiles` on 8.0 and `getFilteredFiles` later). The
  * matching logic is identical from 8.0 through 9.4 and is mirrored by
- * [isIgnored]; the matched artifacts' files are removed from the rule inputs
- * by file equality, as AGP does.
+ * [isIgnored]; the matched artifacts' files are removed by file equality, as
+ * AGP does.
  */
 internal object IgnoredLibraryKeepRules {
 
@@ -29,42 +26,22 @@ internal object IgnoredLibraryKeepRules {
     )
 
     /**
-     * Returns [ruleFiles] minus the consumer rules R8 will ignore, found among [libraryRules] (AGP's
-     * `getLibraryKeepRules()` by default). Unchanged (no artifact resolution) when the DSL is unused or not
-     * present in this AGP version.
+     * Returns [libraryRules]' files minus the ones R8 will ignore. Unchanged
+     * (no artifact resolution) when the DSL is unused or not present in this
+     * AGP version.
      */
-    fun exclude(
-        task: Task,
-        ruleFiles: FileCollection,
-        objects: ObjectFactory,
-        libraryRules: ArtifactCollection? = null,
-    ): FileCollection {
-        val (ignoreFrom, ignoreAll) = readIgnoreConfig(task) ?: return ruleFiles
-        if (ignoreFrom.isEmpty() && !ignoreAll) return ruleFiles
+    fun exclude(task: Task, libraryRules: ArtifactCollection, objects: ObjectFactory): FileCollection {
+        val files = libraryRules.artifactFiles
+        val (ignoreFrom, ignoreAll) = readIgnoreConfig(task) ?: return files
+        if (ignoreFrom.isEmpty() && !ignoreAll) return files
 
-        val ignoredFiles = (libraryRules ?: libraryKeepRules(task, "so the keep-rule ignore DSL cannot be applied"))
-            .resolvedArtifacts.map { artifacts ->
-                artifacts
-                    .filter { isIgnored(it.id.componentIdentifier, ignoreFrom, ignoreAll) }
-                    .map { it.file }
-            }
-        return ruleFiles.minus(objects.fileCollection().from(ignoredFiles))
+        val ignoredFiles = libraryRules.resolvedArtifacts.map { artifacts ->
+            artifacts
+                .filter { isIgnored(it.id.componentIdentifier, ignoreFrom, ignoreAll) }
+                .map { it.file }
+        }
+        return files.minus(objects.fileCollection().from(ignoredFiles))
     }
-
-    /**
-     * AGP's `ProguardConfigurableTask.getLibraryKeepRules()` (present from AGP 8.0
-     * through 9.4): each library's keep-rule file with the dependency it comes from.
-     * Fails, saying what cannot be done ([consequence]), when this AGP version lacks it.
-     */
-    fun libraryKeepRules(task: Task, consequence: String): ArtifactCollection =
-        runCatching { task.javaClass.getMethod("getLibraryKeepRules").invoke(task) as ArtifactCollection }
-            .getOrElse {
-                throw GradleException(
-                    "ProGuard Shield: 'getLibraryKeepRules' could not be read on ${task.path} in this AGP " +
-                        "version, $consequence. ${R8TaskInputExtractor.FALLBACK_HINT}",
-                    it,
-                )
-            }
 
     /**
      * AGP's match: only external modules are eligible; `ignoreAll` takes all

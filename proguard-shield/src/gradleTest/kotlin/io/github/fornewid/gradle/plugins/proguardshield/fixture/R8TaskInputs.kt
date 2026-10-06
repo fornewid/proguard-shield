@@ -2,19 +2,21 @@ package io.github.fornewid.gradle.plugins.proguardshield.fixture
 
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.R8TaskInputExtractor
 
 /**
  * The file inputs of AGP's R8 task, by getter. AGP has moved keep rules to new inputs before (AAPT2 and
- * dynamic feature rules in 9.3, #30 and #55), and the optimization and fullFast modes then missed them
- * silently. [assertAllClassified] fails instead when an AGP version adds an input listed in neither set.
+ * dynamic feature rules in 9.3, #30 and #55). [assertAllClassified] fails when an AGP version adds an input
+ * listed in none of the sets, so a new source of keep rules is not missed silently.
  */
 internal object R8TaskInputs {
 
-    /** Keep rules, as [R8TaskInputExtractor] reads them. */
-    private val RULES = (R8TaskInputExtractor.REQUIRED_METHOD_NAMES + R8TaskInputExtractor.OPTIONAL_METHOD_NAMES).toSet()
+    /** Keep rules the optimization mode reads, in part for getConfigurationFiles ([R8Oracle] checks which part). */
+    private val READ = setOf("getConfigurationFiles", "getKeepRulesFiles")
 
-    /** No keep rules for an app's R8 run, or only ones [RULES] already has. */
+    /** Keep rules that only exist after compiling or processing resources: out of the optimization mode's scope. */
+    private val COMPILED = setOf("getGeneratedProguardFile", "getAaptProguardFiles", "getFeatureProguardFiles")
+
+    /** No keep rules for an app's R8 run, or only ones the sets above already have. */
     private val NOT_RULES = setOf(
         // The library rules of getConfigurationFiles again.
         "getLibraryKeepRulesFileCollection",
@@ -56,10 +58,11 @@ internal object R8TaskInputs {
             .filter { it.startsWith(PREFIX) }
             .map { it.removePrefix(PREFIX) }
 
-        assertThat(inputs).containsAtLeastElementsIn(R8TaskInputExtractor.REQUIRED_METHOD_NAMES)
+        assertThat(inputs).contains("getConfigurationFiles")
         assertWithMessage(
-            "New inputs of AGP's R8 task. Read the ones with keep rules in R8TaskInputExtractor, and list the others in NOT_RULES.",
-        ).that(inputs.toSet() - RULES - NOT_RULES).isEmpty()
+            "New inputs of AGP's R8 task. Read the ones with keep rules that exist without compiling in the optimization " +
+                "mode, then list each in R8TaskInputs.",
+        ).that(inputs.toSet() - READ - COMPILED - NOT_RULES).isEmpty()
     }
 
     private const val PREFIX = "R8 file input: "

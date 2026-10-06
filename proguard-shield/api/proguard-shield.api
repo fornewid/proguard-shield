@@ -1,15 +1,9 @@
 public class io/github/fornewid/gradle/plugins/proguardshield/ProGuardShieldConfiguration : org/gradle/api/Named {
 	public fun <init> (Ljava/lang/String;)V
 	public final fun getConfigurationName ()Ljava/lang/String;
-	public final fun getForbiddenPatterns ()Ljava/util/List;
-	public final fun getFull ()Z
-	public final fun getFullFast ()Z
 	public fun getName ()Ljava/lang/String;
 	public final fun getOptimization ()Z
 	public final fun getTree ()Z
-	public final fun setForbiddenPatterns (Ljava/util/List;)V
-	public final fun setFull (Z)V
-	public final fun setFullFast (Z)V
 	public final fun setOptimization (Z)V
 	public final fun setTree (Z)V
 }

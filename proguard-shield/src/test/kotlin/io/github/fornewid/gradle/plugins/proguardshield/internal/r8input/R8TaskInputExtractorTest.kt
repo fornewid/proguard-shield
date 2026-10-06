@@ -16,21 +16,9 @@ class R8TaskInputExtractorTest {
 
     private val project by lazy { ProjectBuilder.builder().withProjectDir(tempDir).build() }
 
-    /** Shape of AGP 8.x `ProguardConfigurableTask` (no keep-rule source sets). */
-    open inner class Agp8ShapedTask {
-        fun getConfigurationFiles(): FileCollection = project.files("app.pro")
-        fun getGeneratedProguardFile(): FileCollection = project.files("generated_proguard.txt")
-    }
-
-    /** Shape of AGP 9.3+ `ProguardConfigurableTask`. */
-    inner class Agp93ShapedTask : Agp8ShapedTask() {
+    /** Shape of AGP 9.1+'s R8 task, which also has keep-rule source sets. */
+    inner class KeepRulesTask {
         fun getKeepRulesFiles(): FileCollection = project.files("src/main/keepRules/app.keep")
-        fun getAaptProguardFiles(): FileCollection = project.files("aapt_rules.txt")
-        fun getFeatureProguardFiles(): FileCollection = project.files("feature/feature-rules.pro")
-    }
-
-    inner class MissingRequiredGetterTask {
-        fun getConfigurationFiles(): FileCollection = project.files("app.pro")
     }
 
     /** Shape of AGP's R8 task, which passes some rules to R8 as strings. */
@@ -39,33 +27,14 @@ class R8TaskInputExtractorTest {
     }
 
     @Test
-    fun `AGP 8 shaped task reads the required getters only`() {
-        val files = R8TaskInputExtractor.ruleFiles(Agp8ShapedTask::class.java, Agp8ShapedTask())
-
-        assertThat(files.relativePaths()).containsExactly("app.pro", "generated_proguard.txt")
+    fun `reads keep-rule source sets`() {
+        assertThat(R8TaskInputExtractor.keepRulesFiles(KeepRulesTask())?.relativePaths())
+            .containsExactly("src/main/keepRules/app.keep")
     }
 
     @Test
-    fun `AGP 9_3 shaped task also reads keep-rule source sets`() {
-        val files = R8TaskInputExtractor.ruleFiles(Agp93ShapedTask::class.java, Agp93ShapedTask())
-
-        assertThat(files.relativePaths())
-            .containsExactly(
-                "app.pro",
-                "generated_proguard.txt",
-                "src/main/keepRules/app.keep",
-                "aapt_rules.txt",
-                "feature/feature-rules.pro",
-            )
-    }
-
-    @Test
-    fun `missing required getter still fails`() {
-        val e = assertThrows<GradleException> {
-            R8TaskInputExtractor.ruleFiles(MissingRequiredGetterTask::class.java, MissingRequiredGetterTask())
-        }
-
-        assertThat(e).hasMessageThat().contains("getGeneratedProguardFile")
+    fun `no keep-rule source sets before AGP 9_1`() {
+        assertThat(R8TaskInputExtractor.keepRulesFiles(Any())).isNull()
     }
 
     @Test
@@ -75,7 +44,7 @@ class R8TaskInputExtractorTest {
 
     @Test
     fun `missing inline rules getter fails`() {
-        val e = assertThrows<GradleException> { R8TaskInputExtractor.inlineRules(MissingRequiredGetterTask()) }
+        val e = assertThrows<GradleException> { R8TaskInputExtractor.inlineRules(Any()) }
 
         assertThat(e).hasMessageThat().contains("getProguardConfigurations")
     }
