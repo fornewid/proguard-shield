@@ -18,8 +18,8 @@ internal class ClassNamePattern(val text: String) {
     /** The package part of [literal]: `com.foo` for `com.foo.**` and `com.foo.Bar`, empty for `*` or `**.R$*`. */
     val packageLiteral: String = literal.substringBeforeLast('.', missingDelimiterValue = "")
 
-    /** The wildcard reaches into subpackages (`com.foo.**`, `com.applovin.sdk**`). */
-    val isRecursive: Boolean = "**" in wildcard
+    /** The wildcard reaches into subpackages (`com.foo.**`, `com.applovin.sdk**`, `com.*.Bar`). */
+    val isRecursive: Boolean = "**" in wildcard || '.' in wildcard
 
     /**
      * The wildcard covers whole packages (`com.foo.**`, `com.foo.*`, `com.applovin.sdk**`, `**`) rather
@@ -28,9 +28,15 @@ internal class ClassNamePattern(val text: String) {
     val isPackageWide: Boolean = !isExact && wildcard.none { it.isLetterOrDigit() || it == '_' } &&
         literal.substringAfterLast('.').let { it.isEmpty() || it.first().isLowerCase() }
 
-    /** Whether this pattern can match a class in [pkg]. */
-    fun reaches(pkg: String): Boolean =
-        if (isRecursive) pkg == literal.removeSuffix(".") || pkg.startsWith(literal) else pkg == packageLiteral
+    /**
+     * Whether this pattern can match a class in [pkg]; a [isRecursive] pattern counts every package it might
+     * cover. A lone `*` matches every class.
+     */
+    fun reaches(pkg: String): Boolean = when {
+        text == "*" -> true
+        isRecursive -> pkg == packageLiteral || pkg.startsWith(literal)
+        else -> pkg == packageLiteral
+    }
 
     private companion object {
         const val WILDCARDS = "*?<"

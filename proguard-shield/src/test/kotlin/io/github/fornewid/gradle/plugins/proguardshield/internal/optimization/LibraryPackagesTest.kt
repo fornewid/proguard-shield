@@ -112,8 +112,21 @@ class LibraryPackagesTest {
         val acme = LibraryPackages(mapOf("com.acme:core" to setOf("com.acme", "com.acme.core")), appNamespace = "com.acme.app")
         assertThat(acme.isOwn("com.acme:core", ClassNamePattern("com.acme.**"))).isFalse()
         assertThat(acme.isOwn("com.acme:core", ClassNamePattern("com.acme.core.**"))).isTrue()
+        assertThat(acme.isOwn("com.acme:core", ClassNamePattern("com.acme.app.ui.**"))).isFalse()
         val noRootClasses = LibraryPackages(mapOf("com.acme:core" to setOf("com.acme.core")), appNamespace = "com.acme.app")
         assertThat(noRootClasses.isOwn("com.acme:core", ClassNamePattern("com.acme.**"))).isFalse()
+    }
+
+    @Test
+    fun `a pattern reaches program classes on the classpath or in the app's namespace`() {
+        val app = LibraryPackages(mapOf("com.bar:sdk" to setOf("com.bar")), appNamespace = "com.example.app")
+        assertThat(app.reachesProgram(ClassNamePattern("com.bar.Api"))).isTrue()
+        assertThat(app.reachesProgram(ClassNamePattern("com.example.app.ui.**"))).isTrue()
+        assertThat(app.reachesProgram(ClassNamePattern("com.example.**"))).isTrue()
+        assertThat(app.reachesProgram(ClassNamePattern("*"))).isTrue()
+        assertThat(app.reachesProgram(ClassNamePattern("com.qq.e.ads.**"))).isFalse()
+        assertThat(app.reachesProgram(ClassNamePattern("com.bar.Api.Inner"))).isFalse()
+        assertThat(app.reachesProgram(ClassNamePattern("javax.xml.**"))).isFalse()
     }
 
     @Test

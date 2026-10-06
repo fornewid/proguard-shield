@@ -101,9 +101,9 @@ acceptable. Re-baselining accepts the rule.
 - **`isMinifyEnabled = false`**: the plugin requires the target variant to
   have minification enabled. The plugin throws a configuration-time error
   if not, naming the variant.
-- **Upgrading from 0.0.11**: `-assume*` rules and app-wide options that don't
-  reduce what R8 does (`-printconfiguration`, `-ignorewarnings`) are no longer
-  listed. If `check` fails after the upgrade, re-run
+- **Upgrading from 0.0.11**: `-assume*` rules, app-wide options that don't
+  reduce what R8 does (`-printconfiguration`, `-ignorewarnings`) and library
+  rules that match no class are no longer listed. If `check` fails after the upgrade, re-run
   `proguardShieldOptimizationBaseline` and commit the result.
 - **Upgrading from 0.0.10**: the full and fullFast modes,
   `proguardShieldVerifyParity` and `forbiddenPatterns` are removed: delete

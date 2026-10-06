@@ -20,6 +20,8 @@ class LibraryRuleMatcherTest {
             "org.jetbrains.kotlin:kotlin-stdlib" to setOf("kotlin"),
             "com.kakao.sdk:user" to setOf("com.kakao.sdk.user"),
             "com.kakao.sdk:common" to setOf("com.kakao.sdk.common"),
+            "com.applovin:applovin-sdk" to setOf("com.applovin.sdk"),
+            "com.facebook.android:facebook-core" to setOf("com.facebook"),
         ),
     )
 
@@ -70,6 +72,22 @@ class LibraryRuleMatcherTest {
         val onlyOwn = LibraryPackages(mapOf("com.bar:sdk" to setOf("com.bar")))
         assertWithMessage("classpath of only the library's packages")
             .that(listed("-keep class * extends android.app.Activity", packages = onlyOwn)).isTrue()
+    }
+
+    @Test
+    fun `rules whose targets match no class R8 processes are not listed`() {
+        assertNotListed(
+            "-keep class com.qq.e.ads.rewardvideo** { *; }",
+            "-keep class com.google.gson.examples.android.model.** { *; }",
+            "-keep class androidx.recyclerview.* { *; }",
+            "-keep class androidx.recyclerview.widget.RecyclerView.LayoutManager { *; }",
+            "-keep class javax.xml.** { *; }",
+            "-keep class com.qq.** extends android.app.Activity { *; }",
+            "-keeppackagenames com.qq.**",
+        )
+        val app = LibraryPackages(mapOf("com.bar:sdk" to setOf("com.bar")), appNamespace = "com.example.app")
+        assertWithMessage("a package in the app's namespace")
+            .that(listed("-keep class com.example.app.ui.** { *; }", packages = app)).isTrue()
     }
 
     @Test

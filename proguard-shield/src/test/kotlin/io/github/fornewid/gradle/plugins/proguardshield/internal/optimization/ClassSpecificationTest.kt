@@ -45,6 +45,10 @@ class ClassSpecificationTest {
         assertThat(ClassNamePattern("com.foo.**").reaches("com.foobar")).isFalse()
         assertThat(ClassNamePattern("com.applovin.sdk**").reaches("com.applovin.sdk.ads")).isTrue()
         assertThat(ClassNamePattern("**").reaches("anything.at.all")).isTrue()
+        assertThat(ClassNamePattern("*").reaches("anything.at.all")).isTrue()
+        assertThat(ClassNamePattern("*Foo").reaches("com.foo")).isFalse()
+        assertThat(ClassNamePattern("com.*.Bar").reaches("com.foo")).isTrue()
+        assertThat(ClassNamePattern("com.foo.Bar**").reaches("com.foo")).isTrue()
     }
 
     @Test

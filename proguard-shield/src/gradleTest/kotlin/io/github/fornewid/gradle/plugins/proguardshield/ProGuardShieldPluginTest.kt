@@ -213,12 +213,18 @@ internal class ProGuardShieldPluginTest {
             pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
             dependencies = "implementation 'com.vendor:sdk:1.0'\nimplementation 'com.vendor:core:1.0'\n" +
                 "implementation 'io.github.fornewid:core:1.0'\nimplementation files('libs/vendor-file.aar')\n" +
-                "implementation 'com.jarvendor:util:1.0'",
+                "implementation 'com.jarvendor:util:1.0'\nimplementation 'com.thirdparty:classes:1.0'",
         ).use { project ->
+            // Other libraries' classes for the rules below to match. A rule that matches no class is not listed.
+            project.publishLocalJar(
+                "com.thirdparty", "classes", "1.0", "",
+                classes = listOf("com.google.gson.Gson", "okhttp3.OkHttpClient", "okio.Buffer"),
+            )
             project.publishLocalAar(
                 "com.vendor", "sdk", "1.0",
                 """
                 -keep class com.google.gson.** { *; }
+                -keep class com.absent.** { *; }
                 -ignorewarnings
                 -keep class com.vendor.sdk.** { *; }
                 -keep class * extends com.vendor.sdk.Api { *; }
@@ -266,8 +272,9 @@ internal class ProGuardShieldPluginTest {
     fun `optimization failure with tree shows the changed rules under the library`() {
         AndroidProject(
             pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
-            dependencies = "implementation 'com.vendor:sdk:1.0'",
+            dependencies = "implementation 'com.vendor:sdk:1.0'\nimplementation 'com.thirdparty:gson:1.0'",
         ).use { project ->
+            project.publishLocalJar("com.thirdparty", "gson", "1.0", "", classes = listOf("com.google.gson.Gson"))
             val own = "-keep class com.vendor.sdk.** { *; }"
             project.publishLocalAar("com.vendor", "sdk", "1.0", own, classes = listOf("com.vendor.sdk.Api"))
             project.publishLocalAar(

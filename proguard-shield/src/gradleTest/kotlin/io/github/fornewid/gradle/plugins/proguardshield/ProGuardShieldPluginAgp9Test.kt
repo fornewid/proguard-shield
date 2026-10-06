@@ -135,8 +135,9 @@ internal class ProGuardShieldPluginAgp9Test {
     fun `optimization lists a library keep of another package on AGP 9`() {
         newProject(
             pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG,
-            dependencies = "implementation 'com.vendor:sdk:1.0'",
+            dependencies = "implementation 'com.vendor:sdk:1.0'\nimplementation 'com.thirdparty:gson:1.0'",
         ).use { project ->
+            project.publishLocalJar("com.thirdparty", "gson", "1.0", "", classes = listOf("com.google.gson.Gson"))
             project.publishLocalAar(
                 "com.vendor", "sdk", "1.0",
                 "-keep class com.google.gson.** { *; }\n-keep class com.vendor.sdk.** { *; }",

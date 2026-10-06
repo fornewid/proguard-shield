@@ -6,7 +6,8 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
  * option that reduces what R8 does. Not listed: rules on its own packages (or another module of its Maven
  * group), rules scoped by its own types or an annotation, rules that keep a named class without members or
  * list only some members (no `*`, `<fields>` or `<methods>`), rules with both `allowshrinking` and
- * `allowobfuscation`, and `-assume*` rules, which let R8 do more rather than less.
+ * `allowobfuscation`, rules whose targets match no class R8 processes ([LibraryPackages.reachesProgram]),
+ * and `-assume*` rules, which let R8 do more rather than less.
  */
 internal object LibraryRuleMatcher {
 
@@ -33,7 +34,7 @@ internal object LibraryRuleMatcher {
         }
         if ("allowshrinking" in spec.modifiers && "allowobfuscation" in spec.modifiers) return false
         if (spec.annotation != null) return false
-        val foreign = spec.names.filter { !it.hasBackReference && !packages.isOwn(label, it) }
+        val foreign = spec.names.filter { !it.hasBackReference && reachesOutside(it, label, packages) }
         val inheritance = spec.inheritance?.takeUnless { it.hasBackReference }
         val foreignInheritance = inheritance != null && !packages.isOwn(label, inheritance)
         if (spec.inheritance != null) return foreignInheritance && foreign.isNotEmpty() && keepsBroadly(spec)
@@ -64,6 +65,10 @@ internal object LibraryRuleMatcher {
         val filters = unit.joinToString(" ").removePrefix("-keeppackagenames").split(',')
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("!") }
-        return filters.isEmpty() || filters.any { !packages.isOwn(label, ClassNamePattern("$it.*")) }
+        return filters.isEmpty() || filters.any { reachesOutside(ClassNamePattern("$it.*"), label, packages) }
     }
+
+    /** Whether [pattern] reaches outside the library [label] and can match a class R8 processes. */
+    private fun reachesOutside(pattern: ClassNamePattern, label: String, packages: LibraryPackages): Boolean =
+        !packages.isOwn(label, pattern) && packages.reachesProgram(pattern)
 }
