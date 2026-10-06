@@ -109,18 +109,21 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
         }
 
         // Every output below is sorted or compared as a set, so file order does not matter.
-        val rules = ruleInputs.files
+        val (listed, unlisted) = ruleInputs.files
             .filter { it.isFile }
             .map { file -> file.readText() to RuleOrigins.resolve(file, origins, projectDir, path) }
             .plus(inlineRules.get().joinToString("\n") to RuleOrigin(RuleOrigins.AGP))
-            .flatMap { (text, origin) ->
-                RuleNormalizer.normalizeUnits(text)
-                    .filter { unit ->
-                        OptimizationBlockingRuleMatcher.matches(unit) ||
-                            (origin.isLibrary && LibraryRuleMatcher.matches(unit, origin.label, packages))
-                    }
-                    .map { BlockingRule(it.joinToString("\n"), origin) }
+            .flatMap { (text, origin) -> RuleNormalizer.normalizeUnits(text).map { it to origin } }
+            .partition { (unit, origin) ->
+                OptimizationBlockingRuleMatcher.matches(unit) ||
+                    (origin.isLibrary && LibraryRuleMatcher.matches(unit, origin.label, packages))
             }
+        // A library's rule that a source also declares without it being listed (the app's or AGP's rules, or
+        // the library that owns its target) has no effect of its own.
+        val declaredElsewhere = unlisted.mapTo(HashSet()) { (unit, _) -> unit }
+        val rules = listed
+            .filter { (unit, _) -> unit !in declaredElsewhere }
+            .map { (unit, origin) -> BlockingRule(unit.single(), origin) }
 
         val context = r8Context.get()
         val listChanges = writeOrCompare(listFile.get().asFile, OptimizationBlockingRuleReport.renderList(rules, context)) {

@@ -138,6 +138,8 @@ A library's rule is not listed when it:
 - keeps a single named class without members, or lists only some members:
   `-keep class kotlin.Metadata`, `{ <init>(); }`, `{ volatile <fields>; }`
 - has both `allowshrinking` and `allowobfuscation`
+- is also declared by the app's rule files, AGP's default file or the library
+  that owns its target, so dropping it wouldn't change R8's output
 - matches no class on the runtime classpath or in the app's namespace:
   `-keep class com.absent.** { *; }`. Classes of the app and the project's
   modules outside that namespace aren't read, and the type in `extends` or
@@ -145,6 +147,10 @@ A library's rule is not listed when it:
 - is an `-assume*` rule, or an app-wide option that doesn't reduce what R8 does,
   such as `-ignorewarnings`, `-printmapping`, `-repackageclasses` or an option
   R8 ignores
+
+Each rule is written on one line with its whitespace normalized, so the same
+rule written with other spacing is one entry, and a library that only reformats
+its rules doesn't change the list.
 
 The list starts with what decides how R8 reads these rules: the AGP version, the
 R8 version when `android.r8.versionOverride` sets one (AGP 9.5+), and the R8
@@ -204,7 +210,10 @@ proguardShield {
 
 ## Migrating from 0.0.11
 
-- A library's rule that matches no class is no longer listed.
+- Rules are written on one line with their whitespace normalized.
+- A library's rule that matches no class, or that the app's rule files, AGP's
+  default file or the library owning its target also declare, is no longer
+  listed.
 - `-assume*` rules and app-wide options that don't reduce what R8 does, such as
   `-printconfiguration` and `-ignorewarnings`, are no longer listed. If `check`
   fails once, run `./gradlew proguardShieldOptimizationBaseline` and commit the

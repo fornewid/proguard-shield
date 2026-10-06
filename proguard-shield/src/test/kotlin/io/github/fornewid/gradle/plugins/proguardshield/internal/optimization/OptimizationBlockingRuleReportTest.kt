@@ -11,7 +11,7 @@ class OptimizationBlockingRuleReportTest {
     private val other = RuleOrigin("com.other:lib")
     private val agp = RuleOrigin("<agp>")
     private val unresolved = RuleOrigin("<unresolved>")
-    private val keepAll = "-keep class ** {\n*;\n}"
+    private val keepAll = "-keep class ** { *; }"
 
     @Test
     fun `renderList is empty when nothing blocks optimization`() {
@@ -27,7 +27,7 @@ class OptimizationBlockingRuleReportTest {
             BlockingRule("-dontobfuscate", other),
         )
         assertThat(OptimizationBlockingRuleReport.renderList(rules))
-            .isEqualTo("-dontobfuscate\n-keep class ** {\n*;\n}\n")
+            .isEqualTo("-dontobfuscate\n-keep class ** { *; }\n")
     }
 
     @Test
@@ -128,9 +128,7 @@ class OptimizationBlockingRuleReportTest {
         assertThat(message(list, RuleChanges.none())).isEqualTo(
             """
             ProGuard Shield: optimization-blocking rules changed in :app (release).
-            + -keep class ** {
-            + *;
-            + }
+            + -keep class ** { *; }
             - -keepattributes *
 
             re-baseline hint
@@ -158,9 +156,7 @@ class OptimizationBlockingRuleReportTest {
             + -dontobfuscate
             + -ignorewarnings
               [com.other:lib]
-            + -keep class ** {
-            + *;
-            + }
+            + -keep class ** { *; }
 
             re-baseline hint
             """.trimIndent(),

@@ -269,6 +269,34 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
+    fun `optimization skips a library rule that the app or the library owning its target also declares`() {
+        AndroidProject(
+            proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keep class okhttp3.** {*;}",
+            pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
+            dependencies = "implementation 'com.vendor:sdk:1.0'\nimplementation 'com.google:gson:1.0'\n" +
+                "implementation 'com.squareup:okhttp:1.0'",
+        ).use { project ->
+            // gson's own copy of the rule is not listed: it targets gson's own packages.
+            project.publishLocalJar(
+                "com.google", "gson", "1.0", "-keep class com.google.gson.** { *; }",
+                classes = listOf("com.google.gson.Gson"),
+            )
+            project.publishLocalJar("com.squareup", "okhttp", "1.0", "", classes = listOf("okhttp3.OkHttpClient", "okio.Buffer"))
+            project.publishLocalAar(
+                "com.vendor", "sdk", "1.0",
+                "-keep class com.google.gson.** {\n    *;\n}\n-keep class okhttp3.** { *; }\n" +
+                    "-keep class okio.**{ *; }\n-keep class okio.** { *; }",
+                classes = listOf("com.vendor.sdk.Api"),
+            )
+
+            build(project, ":app:proguardShieldOptimizationBaseline")
+
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keep class okio.** { *; }\n")
+            assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo("[com.vendor:sdk]\n-keep class okio.** { *; }\n")
+        }
+    }
+
+    @Test
     fun `optimization failure with tree shows the changed rules under the library`() {
         AndroidProject(
             pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,
@@ -289,9 +317,7 @@ internal class ProGuardShieldPluginTest {
 
             val output = buildAndFail(project, ":app:proguardShieldOptimization").output
             assertThat(output).contains("[com.vendor:sdk]")
-            assertThat(output).contains("+ -keep class com.google.gson.** {")
-            assertThat(output).contains("+ *;")
-            assertThat(output).contains("+ }")
+            assertThat(output).contains("+ -keep class com.google.gson.** { *; }")
             assertThat(output).doesNotContain("Origins changed")
             assertThat(output).doesNotContain("from com.vendor")
         }
