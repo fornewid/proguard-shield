@@ -73,16 +73,33 @@ class LibraryRuleMatcherTest {
     }
 
     @Test
-    fun `assume rules on code the library does not ship and app-wide options are listed`() {
+    fun `app-wide options that reduce what R8 does are listed`() {
         assertListed(
-            "-assumenosideeffects class android.util.Log { *; }",
-            "-assumevalues class com.google.gson.Gson { boolean DEBUG return false; }",
-            "-ignorewarnings",
-            "-printconfiguration rules.txt",
-            "-repackageclasses",
+            "-keepparameternames",
+            "-keepkotlinmetadata",
+            "-dontrepackage",
             "-keeppackagenames com.google.**",
             "-keeppackagenames",
             "-keeppackagenames !com.bar.**",
+        )
+    }
+
+    @Test
+    fun `assume rules and app-wide options that do not reduce what R8 does are not listed`() {
+        assertNotListed(
+            "-assumenosideeffects class android.util.Log { *; }",
+            "-assumevalues class com.google.gson.Gson { boolean DEBUG return false; }",
+            "-assumenoescapingparameters class com.google.gson.Gson { *; }",
+            "-printconfiguration rules.txt",
+            "-printmapping proguard.map",
+            "-adaptresourcefilenames okhttp3/internal/publicsuffix/PublicSuffixDatabase.gz",
+            "-adaptresourcefilecontents",
+            "-repackageclasses",
+            "-allowaccessmodification",
+            "-ignorewarnings",
+            "-optimizations !class/unboxing/enum",
+            "-dontusemixedcaseclassnames",
+            "-useuniqueclassmembernames",
         )
     }
 
@@ -94,7 +111,6 @@ class LibraryRuleMatcherTest {
             "-keep class com.bar.ext.** { *; }",
             "-keeppackagenames com.bar.**",
             "-keeppackagenames com.bar",
-            "-assumenosideeffects class com.bar.internal.Log { *; }",
         )
         assertNotListed(
             "-keepclassmembers class kotlinx.coroutines.** { volatile <fields>; }",
@@ -181,8 +197,6 @@ class LibraryRuleMatcherTest {
             "-keep,allowshrinking",
             "-keepclassmembers class * {",
             "-keepclasseswithmembers class",
-            "-assumenosideeffects",
-            "-assumevalues class {",
         )
     }
 }

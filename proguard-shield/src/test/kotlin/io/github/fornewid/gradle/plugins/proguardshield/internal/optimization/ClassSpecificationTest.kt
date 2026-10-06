@@ -80,8 +80,6 @@ class ClassSpecificationTest {
         val worker = parse("-keepnames @com.bar.Marker class * extends androidx.work.ListenableWorker")!!
         assertThat(worker.annotation).isEqualTo("com.bar.Marker")
         assertThat(worker.inheritance?.text).isEqualTo("androidx.work.ListenableWorker")
-        assertThat(parse("-assumenosideeffects class android.util.Log { public static int d(...); }")!!.directive)
-            .isEqualTo("assumenosideeffects")
     }
 
     @Test

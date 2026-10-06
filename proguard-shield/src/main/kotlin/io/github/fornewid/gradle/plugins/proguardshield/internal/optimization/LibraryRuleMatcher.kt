@@ -2,22 +2,24 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
 
 /**
  * Decides whether an external library's rule unit reaches code outside the library: a whole package or all
- * fields or methods of a class it does not ship, app classes through a type it does not own, an `-assume*`
- * rule on code it does not ship, or an option for the whole app. Not listed: rules on its own packages (or
- * another module of its Maven group), rules scoped by its own types or an annotation, rules that keep a
- * named class without members or list only some members (no `*`, `<fields>` or `<methods>`), and rules with
- * both `allowshrinking` and `allowobfuscation`.
+ * fields or methods of a class it does not ship, app classes through a type it does not own, or an app-wide
+ * option that reduces what R8 does. Not listed: rules on its own packages (or another module of its Maven
+ * group), rules scoped by its own types or an annotation, rules that keep a named class without members or
+ * list only some members (no `*`, `<fields>` or `<methods>`), rules with both `allowshrinking` and
+ * `allowobfuscation`, and `-assume*` rules, which let R8 do more rather than less.
  */
 internal object LibraryRuleMatcher {
 
     private val DIRECTIVE_NAME = Regex("^-([A-Za-z]+)")
     private val WHITESPACE = Regex("\\s+")
 
-    /** Directives that are not listed here: decided by [OptimizationBlockingRuleMatcher], or not app-wide. */
-    private val UNLISTED_OPTIONS = setOf(
-        "dontobfuscate", "dontshrink", "dontoptimize", "keepattributes",
-        "dontwarn", "dontnote", "whyareyoukeeping", "checkdiscard", "identifiernamestring", "if",
-    )
+    /**
+     * App-wide options that reduce what R8 does. [OptimizationBlockingRuleMatcher] lists `-dontobfuscate`,
+     * `-dontshrink`, `-dontoptimize` and an unfiltered `-keepattributes` for every origin, and
+     * `-keeppackagenames` is listed when it reaches other packages. Other options write output, rename
+     * resources, let R8 do more, or are ignored by R8. Checked against the options R8 9.4.24 reads.
+     */
+    private val LISTED_OPTIONS = setOf("keepparameternames", "keepkotlinmetadata", "dontrepackage")
 
     /** Member specs that cover every field or method, once access modifiers, `static` and `final` are dropped. */
     private val ALL_MEMBERS = setOf("*", "<fields>", "<methods>", "*** *", "*** *(...)")
@@ -26,16 +28,14 @@ internal object LibraryRuleMatcher {
     fun matches(unit: List<String>, label: String, packages: LibraryPackages): Boolean {
         val directive = DIRECTIVE_NAME.find(unit.first())?.groupValues?.get(1) ?: return false
         val spec = ClassSpecification.parse(unit) ?: return when (directive) {
-            in ClassSpecification.KEEP_DIRECTIVES, in ClassSpecification.ASSUME_DIRECTIVES -> false
             "keeppackagenames" -> keepsOtherPackageNames(unit, label, packages)
-            else -> directive !in UNLISTED_OPTIONS
+            else -> directive in LISTED_OPTIONS
         }
         if ("allowshrinking" in spec.modifiers && "allowobfuscation" in spec.modifiers) return false
         if (spec.annotation != null) return false
         val foreign = spec.names.filter { !it.hasBackReference && !packages.isOwn(label, it) }
         val inheritance = spec.inheritance?.takeUnless { it.hasBackReference }
         val foreignInheritance = inheritance != null && !packages.isOwn(label, inheritance)
-        if (spec.directive in ClassSpecification.ASSUME_DIRECTIVES) return foreign.isNotEmpty() || foreignInheritance
         if (spec.inheritance != null) return foreignInheritance && foreign.isNotEmpty() && keepsBroadly(spec)
         return foreign.any { name ->
             when {
