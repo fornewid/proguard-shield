@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.AndroidProject
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.build
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.Builder.buildAndFail
+import io.github.fornewid.gradle.plugins.proguardshield.fixture.R8Oracle
 import io.github.fornewid.gradle.plugins.proguardshield.fixture.R8TaskInputs
 import org.gradle.api.JavaVersion
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -99,17 +100,15 @@ internal class ProGuardShieldPluginAgp9Test {
     }
 
     @Test
-    fun `dynamic feature rules reach fullFast and optimization on AGP 9`() {
+    fun `dynamic feature rules reach fullFast but not optimization on AGP 9`() {
         // AGP 9.3+ passes them through their own input (#55).
         newProject().use { project ->
             project.addDynamicFeature("-keepnames class **")
 
-            // Like `check`: the optimization task alone, without R8.
-            val optimization = build(project, ":app:proguardShieldOptimizationBaseline")
-            assertThat(optimization.task(":app:minifyReleaseWithR8")).isNull()
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keepnames class **\n")
-
-            assertThat(build(project, ":app:proguardShieldVerifyParity").output).contains("parity holds")
+            val result = build(project, ":app:proguardShieldOptimizationBaseline", ":app:proguardShieldVerifyParity")
+            assertThat(result.output).contains("parity holds")
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.readBaselineFile(FULL_FAST_BASELINE)).contains("-keepnames class **")
         }
     }
 
@@ -148,6 +147,23 @@ internal class ProGuardShieldPluginAgp9Test {
             val fast = project.readBaselineFile(FULL_FAST_BASELINE)!!
             assertThat(fast).contains("com.example.kept.Marker")
             assertThat(fast).doesNotContain("com.example.ignored.Marker")
+        }
+    }
+
+    @Test
+    fun `optimization lists the blocking rules R8 reads from the app and libraries on AGP 9`() {
+        newProject(
+            proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keepattributes *",
+            pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG,
+            dependencies = "implementation 'com.example:aar:1.0'",
+        ).use { project ->
+            // Not a -keep of every class: R8 would then keep all of the Kotlin stdlib AGP 9 adds, which is slow.
+            project.publishLocalAar("com.example", "aar", "1.0", "-keepclassmembers class * { *; }")
+            project.dir.resolve("app/src/main/keepRules").apply { mkdirs() }.resolve("app.keep").writeText("-keepnames class **")
+
+            R8Oracle.assertOptimizationListMatchesR8(project, OPTIMIZATION_LIST)
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST))
+                .isEqualTo("-keepattributes *\n-keepclassmembers class * { *; }\n-keepnames class **\n")
         }
     }
 

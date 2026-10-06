@@ -10,7 +10,7 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Provider
 
 /**
- * Reproduces AGP's `optimization.keepRules` ignore filter for the fullFast mode.
+ * Reproduces AGP's `optimization.keepRules` ignore filter for the fullFast and optimization modes.
  *
  * `ProguardConfigurableTask.configurationFiles` holds every library's consumer
  * rules unfiltered; AGP drops the ignored ones only when R8 runs (8.x in
@@ -29,20 +29,25 @@ internal object IgnoredLibraryKeepRules {
     )
 
     /**
-     * Returns [ruleFiles] minus the consumer rules R8 will ignore. Unchanged
-     * (no artifact resolution) when the DSL is unused or not present in this
-     * AGP version.
+     * Returns [ruleFiles] minus the consumer rules R8 will ignore, found among [libraryRules] (AGP's
+     * `getLibraryKeepRules()` by default). Unchanged (no artifact resolution) when the DSL is unused or not
+     * present in this AGP version.
      */
-    fun exclude(task: Task, ruleFiles: FileCollection, objects: ObjectFactory): FileCollection {
+    fun exclude(
+        task: Task,
+        ruleFiles: FileCollection,
+        objects: ObjectFactory,
+        libraryRules: ArtifactCollection? = null,
+    ): FileCollection {
         val (ignoreFrom, ignoreAll) = readIgnoreConfig(task) ?: return ruleFiles
         if (ignoreFrom.isEmpty() && !ignoreAll) return ruleFiles
 
-        val libraryKeepRules = libraryKeepRules(task, "so the keep-rule ignore DSL cannot be applied")
-        val ignoredFiles = libraryKeepRules.resolvedArtifacts.map { artifacts ->
-            artifacts
-                .filter { isIgnored(it.id.componentIdentifier, ignoreFrom, ignoreAll) }
-                .map { it.file }
-        }
+        val ignoredFiles = (libraryRules ?: libraryKeepRules(task, "so the keep-rule ignore DSL cannot be applied"))
+            .resolvedArtifacts.map { artifacts ->
+                artifacts
+                    .filter { isIgnored(it.id.componentIdentifier, ignoreFrom, ignoreAll) }
+                    .map { it.file }
+            }
         return ruleFiles.minus(objects.fileCollection().from(ignoredFiles))
     }
 

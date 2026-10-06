@@ -5,7 +5,6 @@ import com.android.build.api.variant.ApplicationVariant
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldConfiguration
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPluginExtension
-import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.LibraryKeepRuleOrigins
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.LibraryPackagesTransform
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.ProGuardShieldOptimizationTask
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.R8Context
@@ -28,6 +27,9 @@ import org.gradle.api.tasks.TaskProvider
  * to avoid classloader issues with GradleRunner TestKit.
  */
 internal object AndroidVariantHandler {
+
+    /** AGP's (internal) artifact type of the library keep rules R8 receives. */
+    private const val FILTERED_PROGUARD_RULES = "android-filtered-proguard-rules"
 
     fun configureVariants(
         project: Project,
@@ -196,7 +198,7 @@ internal object AndroidVariantHandler {
             fullConfigBaselineTask.configure { mustRunAfter(fullConfigGuardTask) }
         }
 
-        // ---- R8's rule inputs, read without running R8 (fullFast, optimization) ----
+        // ---- R8's rule inputs, read without running R8 (fullFast) ----
         val ruleInputs = project.provider {
             val minifyTask = project.tasks.named(minifyTaskName).get()
             IgnoredLibraryKeepRules.exclude(
@@ -207,10 +209,6 @@ internal object AndroidVariantHandler {
         }
 
         val inlineRules = project.provider { R8TaskInputExtractor.inlineRules(project.tasks.named(minifyTaskName).get()) }
-
-        // Each library rule file mapped to the dependency that ships it (optimization), lazy like `ruleInputs`.
-        val libraryOrigins = project.provider { project.tasks.named(minifyTaskName).get() }
-            .flatMap { LibraryKeepRuleOrigins.of(it) }
 
         // configurationFiles references the user-selected default file under
         // build/intermediates/default_proguard_files/, which only exists after
@@ -229,28 +227,44 @@ internal object AndroidVariantHandler {
 
         // ---- Optimization (default): optimization-blocking rules and their origins ----
         if (config.optimization) {
+            // External libraries' artifacts of [artifactType]. The project's own modules are left out: their
+            // keep rules only exist once they compile.
+            fun libraryArtifacts(artifactType: String) = variant.runtimeConfiguration.incoming
+                .artifactView {
+                    componentFilter { RuleOrigins.of(it).isLibrary }
+                    attributes { attribute(ARTIFACT_TYPE_ATTRIBUTE, artifactType) }
+                }
+                .artifacts
+
+            // External libraries' keep rules as R8 receives them.
+            val libraryKeepRules = libraryArtifacts(FILTERED_PROGUARD_RULES)
+            // The rules R8 reads that exist without compiling the variant. Lazy: the R8 task doesn't exist yet in onVariants.
+            val optimizationRuleInputs = project.provider {
+                val minifyTask = project.tasks.named(minifyTaskName).get()
+                project.files(
+                    variant.proguardFiles,
+                    listOfNotNull(R8TaskInputExtractor.keepRulesFiles(minifyTask)),
+                    IgnoredLibraryKeepRules.exclude(minifyTask, libraryKeepRules.artifactFiles, project.objects, libraryKeepRules),
+                )
+            }
             val listFile = baselineDirectory.file("${config.configurationName}OptimizationBlockingRules.txt")
             val treeFile = baselineDirectory.file("${config.configurationName}OptimizationBlockingRules.tree.txt")
             val projectDirPath = project.projectDir.absolutePath
 
-            val libraryArtifacts = variant.runtimeConfiguration.incoming
-                .artifactView {
-                    componentFilter { RuleOrigins.of(it).isLibrary }
-                    attributes { attribute(ARTIFACT_TYPE_ATTRIBUTE, LibraryPackagesTransform.ARTIFACT_TYPE) }
-                }
-                .artifacts
+            val libraryPackages = libraryArtifacts(LibraryPackagesTransform.ARTIFACT_TYPE)
             val appNamespace = variant.namespace
             val r8Context = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java).pluginVersion.run {
                 R8Context.lines(R8Context.agpVersion(major, minor, micro, previewType, preview)) { project.providers.gradleProperty(it).orNull }
             }
 
             fun ProGuardShieldOptimizationTask.configureOptimization(baseline: Boolean) {
-                this.ruleInputs.from(ruleInputs)
+                this.ruleInputs.from(optimizationRuleInputs)
                 this.inlineRules.set(inlineRules)
-                fastExtraDepNames.forEach { dependsOn(it) }
-                this.libraryOrigins.set(libraryOrigins)
-                this.libraryArtifacts.from(libraryArtifacts.artifactFiles)
-                this.libraryArtifactOrigins.set(RuleOrigins.byPath(libraryArtifacts))
+                // For the AGP default file under build/intermediates/default_proguard_files/.
+                dependsOn("extractProguardFiles")
+                this.libraryOrigins.set(RuleOrigins.byPath(libraryKeepRules))
+                this.libraryArtifacts.from(libraryPackages.artifactFiles)
+                this.libraryArtifactOrigins.set(RuleOrigins.byPath(libraryPackages))
                 this.appNamespace.set(appNamespace)
                 this.r8Context.set(r8Context)
                 configurationName.set(config.configurationName)

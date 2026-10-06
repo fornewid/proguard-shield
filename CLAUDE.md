@@ -6,20 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **0.0.x evaluation series.** Repo structure mirrors the sibling project [`manifest-shield`](https://github.com/fornewid/manifest-shield). Each `proguardShield { configuration("<variant>") { … } }` enables modes with flags:
 
-- **optimization** (`optimization`, default `true`) — `proguardShieldOptimization{Variant}` / `proguardShieldOptimizationBaseline{Variant}`, `internal.optimization.ProGuardShieldOptimizationTask`. Reads R8's rule inputs like fullFast (no R8 run), keeps the optimization-blocking rules (`OptimizationBlockingRuleMatcher`) in `<variant>OptimizationBlockingRules.txt` under a header of the AGP version and R8 mode properties (`R8Context`), and with `tree = true` groups them by origin (`RuleOrigins`, `LibraryKeepRuleOrigins` via AGP's `getLibraryKeepRules()`) in `.tree.txt`. External libraries' rules (Maven modules and AAR/JAR file dependencies) that reach code outside the library are added by `LibraryRuleMatcher`, using each library's own packages (`LibraryPackages`, read from the variant's public `runtimeConfiguration` through a cached artifact transform, `LibraryPackagesTransform`; a pattern that reaches the app's `namespace` is never a library's own). On `check`.
+- **optimization** (`optimization`, default `true`) — `proguardShieldOptimization{Variant}` / `proguardShieldOptimizationBaseline{Variant}`, `internal.optimization.ProGuardShieldOptimizationTask`. Reads the rules R8 reads that exist without compiling the variant (no R8 run): `variant.proguardFiles`, keep-rule source sets, external libraries' keep rules (an `android-filtered-proguard-rules` artifact view of `runtimeConfiguration`, project modules left out) and AGP's string rules. It keeps the optimization-blocking rules (`OptimizationBlockingRuleMatcher`) in `<variant>OptimizationBlockingRules.txt` under a header of the AGP version and R8 mode properties (`R8Context`), and with `tree = true` groups them by origin (`RuleOrigins.byPath` of that artifact view) in `.tree.txt`. External libraries' rules (Maven modules and AAR/JAR file dependencies) that reach code outside the library are added by `LibraryRuleMatcher`, using each library's own packages (`LibraryPackages`, read from the variant's public `runtimeConfiguration` through a cached artifact transform, `LibraryPackagesTransform`; a pattern that reaches the app's `namespace` is never a library's own). On `check`.
 - **fullFast** (`fullFast`, default `false`) — `proguardShieldFullFast{Variant}`, `ProGuardShieldFastListTask`. Full rule baseline `<variant>FullFastRules.txt` from `ProguardConfigurableTask` getters via reflection (`R8TaskInputExtractor`, `IgnoredLibraryKeepRules`). On `check`.
 - **full** (`full`, default `false`) — `proguardShieldFull{Variant}`, `ProGuardShieldListTask`. Runs R8 with an injected `-printconfiguration` (only for variants that enable full; a relative path, declared as an extra output of the R8 task) and keeps `<variant>FullRules.txt`. **Public AGP API only — this invariant must not change.** Not on `check`.
 
 `forbiddenPatterns` (`internal.forbidden.ForbiddenPatternChecker`) runs only in full and fullFast, on the same normalized input, before the drift comparison. Empty by default.
 
-**Parity (AI / maintainer verification):** `proguardShieldVerifyParity{Variant}` exists when both full and fullFast are enabled; it regenerates both baselines and byte-compares them. Run it on the sample (which enables every mode) and run the gradleTest parity tests whenever you change rule-input extraction (`R8TaskInputExtractor`, `IgnoredLibraryKeepRules`, `LibraryKeepRuleOrigins`) or the supported AGP versions:
+**Parity (AI / maintainer verification):** `proguardShieldVerifyParity{Variant}` exists when both full and fullFast are enabled; it regenerates both baselines and byte-compares them. Run it on the sample (which enables every mode) and run the gradleTest parity tests whenever you change rule-input extraction (`R8TaskInputExtractor`, `IgnoredLibraryKeepRules`) or the supported AGP versions:
 
 ```bash
 ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :sample:app:proguardShieldVerifyParity
 ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :proguard-shield:gradleTest
 ```
 
-The gradleTest guard `R8TaskInputs` fails when an AGP version adds a file input to the R8 task.
+The gradleTest guard `R8TaskInputs` fails when an AGP version adds a file input to the R8 task. `R8Oracle` checks the optimization list against R8's own `-printconfiguration` output.
 
 ## Build & Test Commands
 

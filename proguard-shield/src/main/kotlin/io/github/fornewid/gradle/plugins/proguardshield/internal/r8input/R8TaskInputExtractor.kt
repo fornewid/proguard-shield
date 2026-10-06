@@ -92,6 +92,10 @@ internal object R8TaskInputExtractor {
         return collections.reduce { acc, next -> acc.plus(next) }
     }
 
+    /** Keep-rule source sets (`src/<variant>/keepRules/`), which exist without compiling; null before AGP 9.1. */
+    fun keepRulesFiles(task: Any): FileCollection? =
+        runCatching { task.javaClass.getMethod("getKeepRulesFiles") }.getOrNull()?.invoke(task) as? FileCollection
+
     /**
      * Rules AGP passes to R8 as strings rather than files, such as JaCoCo's keeps when the variant's build type
      * is the `testBuildType` with `enableAndroidTestCoverage`. Declared on AGP's R8 task (`R8Task` in 8.x,
