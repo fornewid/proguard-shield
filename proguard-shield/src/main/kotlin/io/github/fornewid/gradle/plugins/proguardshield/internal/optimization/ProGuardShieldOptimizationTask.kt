@@ -1,8 +1,8 @@
 package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
 
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
-import io.github.fornewid.gradle.plugins.proguardshield.internal.rules.RuleDiffResult
 import io.github.fornewid.gradle.plugins.proguardshield.internal.rules.RuleNormalizer
+import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.ColorTerminal
 import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.Messaging
 import io.github.fornewid.gradle.plugins.proguardshield.internal.utils.Tasks.declareCompatibilities
 import org.gradle.api.DefaultTask
@@ -141,12 +141,7 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
                 configurationName = configName,
                 list = listChanges,
                 tree = treeChanges,
-                rebaselineMessage = Messaging.rebaselineMessage(
-                    projectPath = path,
-                    configurationName = configName,
-                    baselineTaskPrefix = "proguardShieldOptimization",
-                    aggregateBaselineTask = ProGuardShieldPlugin.PROGUARD_SHIELD_OPTIMIZATION_BASELINE_TASK_NAME,
-                ),
+                rebaselineMessage = Messaging.rebaselineMessage(path, configName),
             ),
         )
     }
@@ -155,9 +150,9 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     private fun <T> writeOrCompare(file: File, content: String, compare: (String) -> RuleChanges<T>): RuleChanges<T> {
         if (shouldBaseline.get() || !file.exists()) {
             file.writeText(content)
-            logger.lifecycle(
-                RuleDiffResult.BaselineCreated(projectPath.get(), configurationName.get(), file).format(withColor = true),
-            )
+            val message = "ProGuard Shield baseline created for ${projectPath.get()} (${configurationName.get()}).\n" +
+                "File: file://${file.canonicalPath}"
+            logger.lifecycle(ColorTerminal.colorify(ColorTerminal.ANSI_YELLOW, message))
             return RuleChanges.none()
         }
         return compare(file.readText())

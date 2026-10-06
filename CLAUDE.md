@@ -4,22 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Status
 
-**0.0.x evaluation series.** Repo structure mirrors the sibling project [`manifest-shield`](https://github.com/fornewid/manifest-shield). Each `proguardShield { configuration("<variant>") { … } }` enables modes with flags:
+**0.0.x evaluation series.** Repo structure mirrors the sibling project [`manifest-shield`](https://github.com/fornewid/manifest-shield). Each `proguardShield { configuration("<variant>") { … } }` registers `proguardShieldOptimization{Variant}` / `proguardShieldOptimizationBaseline{Variant}` (`internal.optimization.ProGuardShieldOptimizationTask`) unless `optimization = false`. It reads the rules R8 reads that exist without compiling the variant (no R8 run): `variant.proguardFiles`, keep-rule source sets, external libraries' keep rules (an `android-filtered-proguard-rules` artifact view of `runtimeConfiguration`, project modules left out) and AGP's string rules. It keeps the optimization-blocking rules (`OptimizationBlockingRuleMatcher`) in `<variant>OptimizationBlockingRules.txt` under a header of the AGP version and R8 mode properties (`R8Context`), and with `tree = true` groups them by origin (`RuleOrigins.byPath` of that artifact view) in `.tree.txt`. External libraries' rules (Maven modules and AAR/JAR file dependencies) that reach code outside the library are added by `LibraryRuleMatcher`, using each library's own packages (`LibraryPackages`, read from the variant's public `runtimeConfiguration` through a cached artifact transform, `LibraryPackagesTransform`; a pattern that reaches the app's `namespace` is never a library's own). On `check`.
 
-- **optimization** (`optimization`, default `true`) — `proguardShieldOptimization{Variant}` / `proguardShieldOptimizationBaseline{Variant}`, `internal.optimization.ProGuardShieldOptimizationTask`. Reads the rules R8 reads that exist without compiling the variant (no R8 run): `variant.proguardFiles`, keep-rule source sets, external libraries' keep rules (an `android-filtered-proguard-rules` artifact view of `runtimeConfiguration`, project modules left out) and AGP's string rules. It keeps the optimization-blocking rules (`OptimizationBlockingRuleMatcher`) in `<variant>OptimizationBlockingRules.txt` under a header of the AGP version and R8 mode properties (`R8Context`), and with `tree = true` groups them by origin (`RuleOrigins.byPath` of that artifact view) in `.tree.txt`. External libraries' rules (Maven modules and AAR/JAR file dependencies) that reach code outside the library are added by `LibraryRuleMatcher`, using each library's own packages (`LibraryPackages`, read from the variant's public `runtimeConfiguration` through a cached artifact transform, `LibraryPackagesTransform`; a pattern that reaches the app's `namespace` is never a library's own). On `check`.
-- **fullFast** (`fullFast`, default `false`) — `proguardShieldFullFast{Variant}`, `ProGuardShieldFastListTask`. Full rule baseline `<variant>FullFastRules.txt` from `ProguardConfigurableTask` getters via reflection (`R8TaskInputExtractor`, `IgnoredLibraryKeepRules`). On `check`.
-- **full** (`full`, default `false`) — `proguardShieldFull{Variant}`, `ProGuardShieldListTask`. Runs R8 with an injected `-printconfiguration` (only for variants that enable full; a relative path, declared as an extra output of the R8 task) and keeps `<variant>FullRules.txt`. **Public AGP API only — this invariant must not change.** Not on `check`.
-
-`forbiddenPatterns` (`internal.forbidden.ForbiddenPatternChecker`) runs only in full and fullFast, on the same normalized input, before the drift comparison. Empty by default.
-
-**Parity (AI / maintainer verification):** `proguardShieldVerifyParity{Variant}` exists when both full and fullFast are enabled; it regenerates both baselines and byte-compares them. Run it on the sample (which enables every mode) and run the gradleTest parity tests whenever you change rule-input extraction (`R8TaskInputExtractor`, `IgnoredLibraryKeepRules`) or the supported AGP versions:
+**Verification (AI / maintainer):** the optimization mode never compiles the variant and never runs R8, so whether it reads what R8 reads is checked in gradleTest: `R8Oracle` compares the list with R8's own `-printconfiguration` output, without the sources the mode leaves out, and `R8TaskInputs` fails when an AGP version adds a file input to the R8 task. Run the gradleTests whenever you change how rules are read (`AndroidVariantHandler`, `R8TaskInputExtractor`, `IgnoredLibraryKeepRules`) or the supported AGP versions:
 
 ```bash
-ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :sample:app:proguardShieldVerifyParity
 ANDROID_HOME=$HOME/Library/Android/sdk ./gradlew :proguard-shield:gradleTest
 ```
-
-The gradleTest guard `R8TaskInputs` fails when an AGP version adds a file input to the R8 task. `R8Oracle` checks the optimization list against R8's own `-printconfiguration` output.
 
 ## Build & Test Commands
 
@@ -57,7 +48,7 @@ The repo is a Gradle **included build**: the root project pulls in the plugin mo
 
 ### Plugin Entry
 
-`ProGuardShieldPlugin` (package `io.github.fornewid.gradle.plugins.proguardshield`) registers seven aggregate tasks — `proguardShieldOptimization` / `proguardShieldOptimizationBaseline`, `proguardShieldFull` / `proguardShieldFullBaseline`, `proguardShieldFullFast` / `proguardShieldFullFastBaseline`, `proguardShieldVerifyParity` — and delegates per-variant registration to `internal.AndroidVariantHandler`, which hooks AGP's `onVariants` and registers only the modes a configuration enables. There is no cross-mode aggregate (`proguardShield` / `proguardShieldBaseline` are intentionally unused). Every aggregate validates the configuration names. `check` depends on `proguardShieldOptimization` and `proguardShieldFullFast`.
+`ProGuardShieldPlugin` (package `io.github.fornewid.gradle.plugins.proguardshield`) registers two aggregate tasks — `proguardShieldOptimization` / `proguardShieldOptimizationBaseline` — and delegates per-variant registration to `internal.AndroidVariantHandler`, which hooks AGP's `onVariants`. `proguardShield` / `proguardShieldBaseline` are intentionally unused. Both aggregates validate the configuration names. `check` depends on `proguardShieldOptimization`.
 
 ### References
 

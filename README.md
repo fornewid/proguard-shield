@@ -7,7 +7,7 @@
 
 > :warning: This project is in an experimental stage. APIs and behavior may change without notice.
 
-A Gradle plugin that guards Android's merged ProGuard/R8 rules: it flags rules that block R8's optimization, and can keep a baseline of the full rule set.
+A Gradle plugin that flags ProGuard/R8 rules that block R8's optimization, and library rules that reach beyond the library.
 
 ## Why?
 
@@ -19,7 +19,6 @@ touching your project's own `proguard-rules.pro`.
 **ProGuard Shield** keeps a baseline of the rules that block R8's optimization,
 can group them by the library that adds each one, and fails `check` when a new
 one appears.
-Optional modes also keep a baseline of the full merged rule set.
 
 ## Quick Start
 
@@ -72,9 +71,8 @@ failure.
 ./gradlew check
 ```
 
-`check` reads R8's rule inputs without running R8 (it still runs the tasks that
-produce them, including compilation of the variant) and fails when an
-optimization-blocking rule appears or disappears:
+`check` reads the rules without running R8 or compiling the variant, and fails
+when an optimization-blocking rule appears or disappears:
 
 ```diff
 ProGuard Shield: optimization-blocking rules changed in :app (release).
@@ -84,25 +82,16 @@ If this is intentional, re-baseline using ./gradlew :app:proguardShieldOptimizat
 Or use ./gradlew proguardShieldOptimizationBaseline to re-baseline in entire project.
 ```
 
-## Modes
+## Tasks
 
-Each `configuration(...)` turns modes on and off with the flags in
-[Configuration](#configuration):
+| Task | Does | On `check` |
+|---|---|---|
+| `proguardShieldOptimization{Variant}` | Fails when an optimization-blocking rule appears or disappears | yes |
+| `proguardShieldOptimizationBaseline{Variant}` | Writes `<variant>OptimizationBlockingRules.txt` (+ `.tree.txt`) | no |
 
-| Mode | Default | Tasks | Baseline file | On `check` | AGP coupling |
-|---|---|---|---|---|---|
-| optimization | on | `proguardShieldOptimization{Variant}`, `proguardShieldOptimizationBaseline{Variant}` | `<variant>OptimizationBlockingRules.txt` (+ `.tree.txt`) | yes | AGP internal artifact type, two R8 task values |
-| fullFast | off | `proguardShieldFullFast{Variant}`, `proguardShieldFullFastBaseline{Variant}` | `<variant>FullFastRules.txt` | yes | AGP internal class (`ProguardConfigurableTask`) |
-| full | off | `proguardShieldFull{Variant}`, `proguardShieldFullBaseline{Variant}` | `<variant>FullRules.txt` | no | public AGP API only |
-
-`proguardShieldOptimization`, `proguardShieldFullFast` and `proguardShieldFull`
-(and their `…Baseline` counterparts) run the mode for every configuration that
-enables it, and do nothing otherwise.
-Only full runs R8: it adds a `-printconfiguration` file to R8's inputs for the
-variants that enable it, and the other modes leave R8's inputs untouched. R8's
-build cache still works across checkouts, but an app's own `-printconfiguration`
-file is not written while full is on. full is
-the reference — it uses only public AGP API and records exactly what R8 prints.
+`proguardShieldOptimization` and `proguardShieldOptimizationBaseline` run them
+for every configuration. Besides public AGP API, they read an AGP-internal
+artifact type and two values of the R8 task.
 
 ## Optimization-blocking rules
 
@@ -189,37 +178,6 @@ the rules AGP adds itself, and `<unresolved>` for anything else, such as a rule
 file outside the module. Libraries excluded with AGP's
 `optimization.keepRules.ignoreFrom` are skipped, like R8 does.
 
-## Forbidden patterns
-
-Used by the full and fullFast modes. Empty by default. Declare regex patterns
-that fail the build whenever a matching rule appears in the merged input:
-
-```kotlin
-proguardShield {
-    configuration("release") {
-        fullFast = true
-        forbiddenPatterns = listOf(
-            "-keep\\s+class\\s+\\*\\*",     // overly broad keeps
-            "-dontobfuscate",                // obfuscation disabled
-            "-dontshrink",                   // shrinking disabled
-        )
-    }
-}
-```
-
-Each pattern is matched against the directive head of every rule unit
-(continuation lines of multi-line directives like `-keepattributes A,\nB,\nC`
-are joined; bodies of `-keep ... { ... }` blocks are excluded). Forbidden
-detection runs **before** drift detection — re-baselining cannot silence
-a forbidden match.
-
-## Verifying fullFast against full
-
-`proguardShieldVerifyParity{Variant}` (registered when both full and fullFast are
-enabled) regenerates both baselines and byte-compares them. It is a
-verification aid for maintainers and AI agents working on the plugin, not part
-of the everyday workflow.
-
 ## Configuration
 
 ```kotlin
@@ -234,14 +192,16 @@ proguardShield {
 | Option | Default | Description |
 |---|---|---|
 | `baselineDir` | `"proguardShield"` | Directory (relative to the module) where baseline files are written. |
-| `optimization` | `true` | Track optimization-blocking rules (with their origins when `tree = true`). On `check`. |
-| `tree` | `false` | Also write the by-origin tree for the optimization mode. |
-| `fullFast` | `false` | Keep a full rule baseline read from R8's inputs without running R8. On `check`. |
-| `full` | `false` | Keep a full rule baseline as R8 prints it (runs R8, public AGP API only). Not on `check`. |
-| `forbiddenPatterns` | `[]` | Regex patterns that fail the full / fullFast modes whenever a matching rule appears. |
+| `optimization` | `true` | Track optimization-blocking rules (with their origins when `tree = true`). On `check`. `false` registers no tasks for this configuration. |
+| `tree` | `false` | Also write the by-origin tree. |
 
 ## Migrating from 0.0.10
 
+- The full and fullFast modes, `proguardShieldVerifyParity` and
+  `forbiddenPatterns` are removed. Delete `full`, `fullFast` and
+  `forbiddenPatterns` from your `configuration(...)` blocks, and the
+  `*FullRules.txt` and `*FullFastRules.txt` baseline files.
+- A library's `-printconfiguration` is now listed like other app-wide options.
 - The optimization mode no longer compiles the variant, so it skips the sources
   listed under [Optimization-blocking rules](#optimization-blocking-rules). If
   `check` fails once, run `./gradlew proguardShieldOptimizationBaseline` and
@@ -309,7 +269,7 @@ Rename the committed baseline files (`git mv`), or regenerate them with
 
 ## Limitations
 
-ProGuard Shield compares the text of the merged rule set. An AGP upgrade or an R8
+ProGuard Shield compares the text of the rules. An AGP upgrade or an R8
 mode property change fails `check` once, but it cannot tell what the change does
 to R8's output, or whether your rules are sufficient (new reflection without a
 matching keep rule produces no diff). An R8 version set apart from AGP's is

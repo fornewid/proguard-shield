@@ -9,7 +9,7 @@ import java.util.zip.ZipOutputStream
 
 internal class AndroidProject(
     private val proguardRules: String = DEFAULT_PROGUARD_RULES,
-    private val pluginConfig: String = DEFAULT_PLUGIN_CONFIG,
+    private val pluginConfig: String = MINIMAL_PLUGIN_CONFIG,
     private val minifyEnabled: Boolean = true,
     private val shrinkResources: Boolean = false,
     private val extraProguardFiles: String = "",
@@ -221,10 +221,6 @@ internal class AndroidProject(
         return bytes.toByteArray()
     }
 
-    fun updateProguardRules(newContent: String) {
-        dir.resolve("app/proguard-rules.pro").writeText(newContent)
-    }
-
     /** Adds a `:feature` dynamic feature module whose release build type ships [rules]. */
     fun addDynamicFeature(rules: String) {
         dir.resolve("settings.gradle").appendText("\ninclude ':feature'\n")
@@ -344,17 +340,7 @@ internal class AndroidProject(
             -keepattributes SourceFile,LineNumberTable
         """.trimIndent()
 
-        /** Enables the full-rule modes so the parity-era tests keep their meaning. */
-        val DEFAULT_PLUGIN_CONFIG = """
-            proguardShield {
-                configuration("release") {
-                    full = true
-                    fullFast = true
-                }
-            }
-        """.trimIndent()
-
-        /** The configuration a user writes without any mode flags. */
+        /** The configuration a user writes without any flags. */
         val MINIMAL_PLUGIN_CONFIG = """
             proguardShield {
                 configuration("release")

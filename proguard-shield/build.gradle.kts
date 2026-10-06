@@ -43,7 +43,7 @@ gradlePlugin {
       id = "io.github.fornewid.proguard-shield"
       implementationClass = "io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin"
       displayName = "ProGuard Shield"
-      description = "A Gradle plugin that detects unintentional changes to Android's merged ProGuard/R8 rules."
+      description = "A Gradle plugin that detects ProGuard/R8 rules that block R8's optimization, and library rules that reach beyond the library."
       tags.set(listOf("android", "proguard", "r8", "security", "gradle-plugin"))
     }
   }
@@ -103,7 +103,7 @@ testing {
 
 gradlePlugin.testSourceSets(sourceSets.named("gradleTest").get())
 
-// gradleTest sees internal code too: R8TaskInputs reads the getters R8TaskInputExtractor reads.
+// gradleTest sees internal code too: R8Oracle uses the rule normalizer and matcher.
 kotlin.target.compilations.getByName("gradleTest").associateWith(kotlin.target.compilations.getByName("main"))
 
 // Pass the plugin JAR path to gradleTest for buildscript classpath injection.

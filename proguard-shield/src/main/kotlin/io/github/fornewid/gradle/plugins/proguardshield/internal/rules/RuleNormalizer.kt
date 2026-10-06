@@ -1,8 +1,8 @@
 package io.github.fornewid.gradle.plugins.proguardshield.internal.rules
 
 /**
- * Normalizes R8 `-printconfiguration` output so cosmetic changes (comments,
- * blank lines, trailing whitespace) don't cause spurious baseline diffs.
+ * Normalizes ProGuard/R8 rule text so cosmetic changes (comments, blank lines,
+ * trailing whitespace) don't cause spurious baseline diffs.
  *
  * Output is sorted by **rule unit**, not by individual line. A unit is a
  * single `-...` directive plus any continuation lines or `{ ... }` block
@@ -10,10 +10,8 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.rules
  * anchored to its own header in the baseline file, so a `git diff` of the
  * committed baseline still shows which class's keep block actually changed.
  *
- * R8's own `-printconfiguration` line order is not stable across versions,
- * and the fullFast mode concatenates input `.pro` files in arbitrary order —
- * sorting by header line absorbs both. Bodies stay in the order R8 wrote
- * them within a unit.
+ * Sorting by header line makes the result independent of the order the rule
+ * files are read in. Bodies stay in their original order within a unit.
  */
 internal object RuleNormalizer {
 
@@ -26,8 +24,7 @@ internal object RuleNormalizer {
      * separate inner list. The first element of every inner list is the unit's
      * header (the line that starts with `-`), followed by any continuation /
      * block-body lines. Useful when a caller needs to reason about a rule's
-     * boundary — e.g. forbidden-pattern matching wants to test the header line
-     * in isolation, not the body.
+     * boundary, as the optimization matchers do.
      */
     fun normalizeUnits(raw: String): List<List<String>> {
         return parseUnits(raw)
@@ -36,8 +33,7 @@ internal object RuleNormalizer {
             // Without the tie-break, two units with identical headers
             // (e.g. several `-keepclasseswithmembers class * { ... }`
             // blocks differing only by their inner annotation) would
-            // keep input order — which differs between the full and
-            // fullFast modes and breaks bit-identical parity.
+            // keep the order the files were read in.
             .sortedWith(compareBy({ it.first() }, { it.joinToString("\n") }))
     }
 
@@ -45,9 +41,7 @@ internal object RuleNormalizer {
      * Splits [raw] into rule units. A unit starts at a `-...` directive when
      * the brace depth is 0, and absorbs every following non-empty line until
      * the next directive starts at depth 0. Inline `#` comments are stripped,
-     * blank lines are dropped, and the plugin-injected `-printconfiguration`
-     * line is filtered out (it is ProGuard Shield's own, not the app's, and
-     * fullFast never sees it).
+     * and blank lines are dropped.
      *
      * Assumptions about the input (true for R8's `-printconfiguration` output
      * and for the concatenation of `.pro` files that feed it):
@@ -64,16 +58,6 @@ internal object RuleNormalizer {
         for (rawLine in raw.lineSequence()) {
             val code = stripInlineComment(rawLine).trim()
             if (code.isEmpty()) continue
-
-            // R8 echoes our injected -printconfiguration directive back; it is
-            // ProGuard Shield's own line, so it must not enter the baseline.
-            // Drop it unconditionally — even if a malformed input somehow
-            // buried it inside an unbalanced block. The line carries no
-            // braces, so this does not disturb depth tracking.
-            if (code.startsWith("-printconfiguration")) {
-                if (depth == 0) current = null
-                continue
-            }
 
             val isDirectiveStart = depth == 0 && code.startsWith("-")
             if (isDirectiveStart) {
