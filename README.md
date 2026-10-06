@@ -138,6 +138,10 @@ A library's rule is not listed when it:
 - keeps a single named class without members, or lists only some members:
   `-keep class kotlin.Metadata`, `{ <init>(); }`, `{ volatile <fields>; }`
 - has both `allowshrinking` and `allowobfuscation`
+- matches no class on the runtime classpath or in the app's namespace:
+  `-keep class com.absent.** { *; }`. Classes of the app and the project's
+  modules outside that namespace aren't read, and the type in `extends` or
+  `implements` isn't checked.
 - is an `-assume*` rule, or an app-wide option that doesn't reduce what R8 does,
   such as `-ignorewarnings`, `-printmapping`, `-repackageclasses` or an option
   R8 ignores
@@ -200,6 +204,7 @@ proguardShield {
 
 ## Migrating from 0.0.11
 
+- A library's rule that matches no class is no longer listed.
 - `-assume*` rules and app-wide options that don't reduce what R8 does, such as
   `-printconfiguration` and `-ignorewarnings`, are no longer listed. If `check`
   fails once, run `./gradlew proguardShieldOptimizationBaseline` and commit the

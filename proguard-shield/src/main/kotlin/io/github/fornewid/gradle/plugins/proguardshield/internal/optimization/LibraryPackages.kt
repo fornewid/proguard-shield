@@ -25,12 +25,12 @@ internal class LibraryPackages(byLibrary: Map<String, Set<String>>, private val 
     /**
      * Whether [pattern], in a rule of the library [label], stays inside the library: its package sits in one
      * of the library's packages, or every classpath package it can reach is the library's. A pattern
-     * without a package (`*`, `**`) or one that reaches [appNamespace] also reaches the app, so it is
-     * never the library's own.
+     * without a package (`*`, `**`) or one that reaches the app's code ([reachesApp]) is never the
+     * library's own.
      */
     fun isOwn(label: String, pattern: ClassNamePattern): Boolean {
         val pkg = pattern.packageLiteral
-        if (pkg.isEmpty() || appNamespace?.let(pattern::reaches) == true) return false
+        if (pkg.isEmpty() || reachesApp(pattern)) return false
         val own = ownPackages(label)
         if (own.any { pkg == it || pkg.startsWith("$it.") }) return true
         // A single-package pattern reaches only its own package, which the check above covers.
@@ -38,6 +38,16 @@ internal class LibraryPackages(byLibrary: Map<String, Set<String>>, private val 
         val reached = all.filter(pattern::reaches)
         return reached.isNotEmpty() && reached.all { it in own }
     }
+
+    /**
+     * Whether [pattern] can match a class R8 processes: one an external library ships, or the app's
+     * ([reachesApp]). A framework class (`android.jar`) is not one.
+     */
+    fun reachesProgram(pattern: ClassNamePattern): Boolean = all.any(pattern::reaches) || reachesApp(pattern)
+
+    /** Whether [pattern] reaches [appNamespace] or its subpackages, where the app's classes are; they are not read. */
+    private fun reachesApp(pattern: ClassNamePattern): Boolean =
+        appNamespace?.let { pattern.reaches(it) || pattern.packageLiteral.startsWith("$it.") } == true
 
     companion object {
         private val VERSIONED = Regex("^META-INF/versions/\\d+/")
