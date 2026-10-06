@@ -38,7 +38,7 @@ class RuleNormalizerTest {
 
         val result = RuleNormalizer.normalize(input)
 
-        // Output is sorted by rule-unit header.
+        // Output is sorted.
         assertThat(result).isEqualTo(
             """
             -keep class com.example.Bar
@@ -66,9 +66,8 @@ class RuleNormalizerTest {
 
     @Test
     fun `keeps multi-line block body anchored to its header`() {
-        // Two blocks whose headers sort B-before-A. The body of A must
-        // travel with its header during sort — that's the whole point of
-        // unit-level sort vs. line-level sort.
+        // Two blocks whose headers sort B-before-A. Each body stays with its
+        // header: a unit is one line.
         val input = """
             -keep class com.example.B {
                 <init>();
@@ -81,12 +80,8 @@ class RuleNormalizerTest {
         val result = RuleNormalizer.normalizeLines(input)
 
         assertThat(result).containsExactly(
-            "-keep class com.example.A {",
-            "public *;",
-            "}",
-            "-keep class com.example.B {",
-            "<init>();",
-            "}",
+            "-keep class com.example.A { public *; }",
+            "-keep class com.example.B { <init>(); }",
         ).inOrder()
     }
 
@@ -107,9 +102,7 @@ class RuleNormalizerTest {
         assertThat(result).containsExactly(
             "-dontwarn xxx",
             "-dontwarn yyy",
-            "-keepattributes AnnotationDefault,",
-            "EnclosingMethod,",
-            "Signature",
+            "-keepattributes AnnotationDefault,EnclosingMethod,Signature",
         ).inOrder()
     }
 
@@ -122,8 +115,8 @@ class RuleNormalizerTest {
 
     @Test
     fun `units with the same header tie-break by body content`() {
-        // Two units share the header but have different bodies. Without the
-        // body tie-break the result would track input order.
+        // Two units share the header but have different bodies. The result
+        // must not track input order.
         val a = """
             -keepclasseswithmembers class * {
                 @androidx.annotation.Keep <methods>;
@@ -157,10 +150,21 @@ class RuleNormalizerTest {
         val result = RuleNormalizer.normalizeLines(input)
 
         assertThat(result).containsExactly(
-            "-keep class A {",
-            "int foo() { return 1; }",
-            "}",
+            "-keep class A { int foo() { return 1; } }",
             "-keep class B",
         ).inOrder()
+    }
+
+    @Test
+    fun `the same rule with other spacing or line breaks is one unit`() {
+        val variants = listOf(
+            "-keep class com.iab.omid.** { *; }",
+            "-keep class com.iab.omid.** {*;}",
+            "-keep class com.iab.omid.**{\n*;\n}",
+            "-keep  class com.iab.omid.** {\n    *;\n}",
+        )
+        assertThat(variants.map(RuleNormalizer::normalize).distinct()).containsExactly("-keep class com.iab.omid.** { *; }")
+        assertThat(RuleNormalizer.normalize("-keep , allowshrinking class A { void foo(int , long) ; }"))
+            .isEqualTo("-keep,allowshrinking class A { void foo(int,long); }")
     }
 }

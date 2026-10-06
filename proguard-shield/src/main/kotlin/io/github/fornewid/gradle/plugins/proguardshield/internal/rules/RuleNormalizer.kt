@@ -2,40 +2,30 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.rules
 
 /**
  * Normalizes ProGuard/R8 rule text so cosmetic changes (comments, blank lines,
- * trailing whitespace) don't cause spurious baseline diffs.
+ * spacing, line breaks) don't cause spurious baseline diffs.
  *
- * Output is sorted by **rule unit**, not by individual line. A unit is a
- * single `-...` directive plus any continuation lines or `{ ... }` block
- * body that belongs to it. Sorting by header line keeps each block's body
- * anchored to its own header in the baseline file, so a `git diff` of the
- * committed baseline still shows which class's keep block actually changed.
- *
- * Sorting by header line makes the result independent of the order the rule
- * files are read in. Bodies stay in their original order within a unit.
+ * Output is sorted by **rule unit**. A unit is a single `-...` directive plus
+ * any continuation lines or `{ ... }` block body that belongs to it, written
+ * on one line with whitespace normalized: `-keep class A { *; }`. The same
+ * rule written with other spacing is the same unit, and sorting makes the
+ * result independent of the order the rule files are read in.
  */
 internal object RuleNormalizer {
 
     fun normalize(raw: String): String = normalizeLines(raw).joinToString("\n")
 
-    fun normalizeLines(raw: String): List<String> = normalizeUnits(raw).flatten()
+    fun normalizeLines(raw: String): List<String> = parseUnits(raw).map(::oneLine).sorted()
 
-    /**
-     * Same parse + sort as [normalizeLines] but returns each rule unit as a
-     * separate inner list. The first element of every inner list is the unit's
-     * header (the line that starts with `-`), followed by any continuation /
-     * block-body lines. Useful when a caller needs to reason about a rule's
-     * boundary, as the optimization matchers do.
-     */
-    fun normalizeUnits(raw: String): List<List<String>> {
-        return parseUnits(raw)
-            // Sort by header first (the actionable identity of the rule),
-            // then by full body content for a deterministic tie-break.
-            // Without the tie-break, two units with identical headers
-            // (e.g. several `-keepclasseswithmembers class * { ... }`
-            // blocks differing only by their inner annotation) would
-            // keep the order the files were read in.
-            .sortedWith(compareBy({ it.first() }, { it.joinToString("\n") }))
-    }
+    /** [normalizeLines] with each line in its own list, the shape the optimization matchers take. */
+    fun normalizeUnits(raw: String): List<List<String>> = normalizeLines(raw).map { listOf(it) }
+
+    /** [lines] on one line: one space between tokens and around `{` and `}`, none before `;` or around `,`. */
+    private fun oneLine(lines: List<String>): String = lines.joinToString(" ")
+        .replace(BRACE_OR_SEMICOLON) { " ${it.value} " }
+        .replace(WHITESPACE, " ")
+        .trim()
+        .replace(" ;", ";")
+        .replace(COMMA, ",")
 
     /**
      * Splits [raw] into rule units. A unit starts at a `-...` directive when
@@ -72,6 +62,10 @@ internal object RuleNormalizer {
         }
         return units
     }
+
+    private val BRACE_OR_SEMICOLON = Regex("[{};]")
+    private val WHITESPACE = Regex("\\s+")
+    private val COMMA = Regex(" ?, ?")
 
     private fun stripInlineComment(line: String): String {
         val hash = line.indexOf('#')

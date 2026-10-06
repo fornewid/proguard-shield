@@ -2,7 +2,7 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
 
 import io.github.fornewid.gradle.plugins.proguardshield.internal.rules.RuleNormalizer
 
-/** One optimization-blocking rule (its lines joined with `\n`) and the origin of its rule file. */
+/** One optimization-blocking rule, on one line ([RuleNormalizer]), and the origin of its rule file. */
 internal data class BlockingRule(val unit: String, val origin: RuleOrigin) : Comparable<BlockingRule> {
     override fun compareTo(other: BlockingRule): Int = compareValuesBy(this, other, { it.origin.label }, { it.unit })
 }
@@ -45,7 +45,7 @@ internal object OptimizationBlockingRuleReport {
     /** Header lines ([R8Context]) and rules only in [rules] or only in [baseline]; other comments are ignored. */
     fun diffList(baseline: String, rules: List<BlockingRule>, context: List<String> = emptyList()): RuleChanges<String> {
         val expected = baseline.lines().map(String::trim).filter(R8Context::isHeader) +
-            RuleNormalizer.normalizeUnits(baseline).map { it.joinToString("\n") }
+            RuleNormalizer.normalizeLines(baseline)
         return changes(expected.toSet(), (context + rules.map { it.unit }).toSet())
     }
 
@@ -86,7 +86,7 @@ internal object OptimizationBlockingRuleReport {
     }
 
     private fun StringBuilder.appendUnit(prefix: String, unit: String) {
-        unit.lines().forEach { appendLine(prefix + it) }
+        appendLine(prefix + unit)
     }
 
     private fun <T : Comparable<T>> changes(expected: Set<T>, actual: Set<T>) =
@@ -108,7 +108,7 @@ internal object OptimizationBlockingRuleReport {
             val content = section.toString()
             section.setLength(0)
             if (current == null) return
-            RuleNormalizer.normalizeUnits(content).forEach { entries += BlockingRule(it.joinToString("\n"), RuleOrigin(current)) }
+            RuleNormalizer.normalizeLines(content).forEach { entries += BlockingRule(it, RuleOrigin(current)) }
         }
         for (line in text.lines()) {
             val trimmed = line.trim()

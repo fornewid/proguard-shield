@@ -1,8 +1,8 @@
 package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
 
 /**
- * Decides whether a rule unit (one `-...` directive with its continuation or
- * `{ ... }` body lines, as produced by `RuleNormalizer.normalizeUnits`) blocks
+ * Decides whether a rule unit (one `-...` directive with its `{ ... }` body, on
+ * one line as produced by `RuleNormalizer.normalizeUnits`) blocks
  * R8's shrinking, obfuscation or optimization for the whole app:
  *
  * - `-dontobfuscate`, `-dontshrink`, `-dontoptimize`
