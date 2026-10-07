@@ -4,7 +4,7 @@ package io.github.fornewid.gradle.plugins.proguardshield.internal.optimization
  * Decides whether an external library's rule unit reaches code outside the library: a whole package or all
  * fields or methods of a class it does not ship, app classes through a type it does not own, or an app-wide
  * option that reduces what R8 does. Not listed: rules on its own packages (or another module of its Maven
- * group), rules scoped by its own types or an annotation, rules that keep a named class without members or
+ * group, or a package the configuration excludes), rules scoped by its own types or an annotation, rules that keep a named class without members or
  * list only some members (no `*`, `<fields>` or `<methods>`), rules with both `allowshrinking` and
  * `allowobfuscation`, rules whose targets match no class R8 processes ([LibraryPackages.reachesProgram]),
  * and `-assume*` rules, which let R8 do more rather than less.

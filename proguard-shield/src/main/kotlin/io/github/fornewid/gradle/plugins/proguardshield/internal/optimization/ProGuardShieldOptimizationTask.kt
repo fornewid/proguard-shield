@@ -61,6 +61,10 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
     @get:Input
     abstract val libraryArtifactOrigins: MapProperty<String, RuleOrigin>
 
+    /** Packages whose library rules are left out: the configuration's `excludePackages`. */
+    @get:Input
+    abstract val excludePackages: ListProperty<String>
+
     /** The app's namespace: a library rule that reaches it reaches the app's code. */
     @get:Input
     abstract val appNamespace: Property<String>
@@ -105,7 +109,11 @@ internal abstract class ProGuardShieldOptimizationTask : DefaultTask() {
         val origins = libraryOrigins.get()
         // Lazy: unused when AGP's optimization.keepRules.ignoreFrom drops every external library's rules.
         val packages by lazy {
-            LibraryPackages.read(libraryArtifactOrigins.get().entries.associate { File(it.key) to it.value.label }, appNamespace.get())
+            LibraryPackages.read(
+                libraryArtifactOrigins.get().entries.associate { File(it.key) to it.value.label },
+                appNamespace.get(),
+                excludePackages.get(),
+            )
         }
 
         // Every output below is sorted or compared as a set, so file order does not matter.

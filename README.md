@@ -131,8 +131,8 @@ are not listed.
 
 A library's rule is not listed when it:
 
-- targets its own packages or another module of its Maven group, without
-  reaching the app's namespace
+- targets its own packages, another module of its Maven group or a package in
+  the configuration's `excludePackages`, without reaching the app's namespace
 - keeps app classes through its own types or an annotation:
   `-keep class * extends androidx.room.RoomDatabase { void <init>(); }`
 - keeps a single named class without members, or lists only some members:
@@ -198,6 +198,7 @@ proguardShield {
     baselineDir.set("custom-dir")  // default: "proguardShield"
     configuration("release") {
         tree = true
+        excludePackages = listOf("com.applovin", "com.google.android.gms.ads")
     }
 }
 ```
@@ -206,6 +207,7 @@ proguardShield {
 |---|---|---|
 | `baselineDir` | `"proguardShield"` | Directory (relative to the module) where baseline files are written. |
 | `tree` | `false` | Also write the by-origin tree. |
+| `excludePackages` | `[]` | Packages, with their subpackages, whose external library rules are left out, such as an ad SDK's own code. |
 
 ## Migrating from 0.0.12
 

@@ -58,8 +58,8 @@ Or directly:
     }
 
 **AI Agent**: The minimal setup is just `configuration("release")` with no
-additional properties. Do NOT add `tree = true` unless the user explicitly asks
-for it. Do NOT apply this plugin to a library module — it only works for
+additional properties. Do NOT add `tree = true` or `excludePackages` unless the
+user explicitly asks for it. Do NOT apply this plugin to a library module — it only works for
 `com.android.application` modules. The target variant must have
 `isMinifyEnabled = true`; a clear configuration-time error is thrown otherwise.
 

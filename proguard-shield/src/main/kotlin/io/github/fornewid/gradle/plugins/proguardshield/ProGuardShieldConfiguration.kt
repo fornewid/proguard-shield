@@ -25,4 +25,13 @@ public open class ProGuardShieldConfiguration @Inject constructor(
      */
     @get:Input
     public var tree: Boolean = false
+
+    /**
+     * Packages, with their subpackages, whose external library rules are left out of the list, such as
+     * an ad SDK keeping its own vendor's code: `listOf("com.applovin", "com.google.android.gms.ads")`.
+     * A rule is left out only when every package it targets is excluded. Rules that block the whole app
+     * and rules that reach the app's namespace are listed anyway. Empty by default.
+     */
+    @get:Input
+    public var excludePackages: List<String> = emptyList()
 }

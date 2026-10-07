@@ -91,6 +91,25 @@ class LibraryRuleMatcherTest {
     }
 
     @Test
+    fun `rules that only reach excluded packages are not listed`() {
+        val ads = LibraryPackages(
+            mapOf(
+                "com.applovin:applovin-sdk" to setOf("com.applovin.sdk", "com.applovin.mediation"),
+                "com.google.code.gson:gson" to setOf("com.google.gson"),
+            ),
+            excludePackages = listOf("com.applovin"),
+        )
+        listOf(
+            "-keep class com.applovin.** { *; }",
+            "-keep class * extends com.applovin.mediation.MaxAdapter { *; }",
+            "-keeppackagenames com.applovin.**",
+        ).forEach { assertWithMessage(it).that(listed(it, label = "com.vendor:adapter", packages = ads)).isFalse() }
+        assertWithMessage("a rule that also reaches a package that is not excluded")
+            .that(listed("-keep class com.applovin.**, com.google.gson.** { *; }", label = "com.vendor:adapter", packages = ads))
+            .isTrue()
+    }
+
+    @Test
     fun `app-wide options that reduce what R8 does are listed`() {
         assertListed(
             "-keepparameternames",
