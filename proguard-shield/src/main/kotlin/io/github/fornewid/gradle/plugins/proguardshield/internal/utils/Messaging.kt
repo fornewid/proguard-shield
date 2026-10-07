@@ -7,8 +7,8 @@ internal object Messaging {
     fun rebaselineMessage(projectPath: String, configurationName: String): String {
         val separator = if (projectPath == ":") "" else ":"
         return """
-            If this is intentional, re-baseline using ./gradlew $projectPath$separator${ProGuardShieldPlugin.PROGUARD_SHIELD_OPTIMIZATION_BASELINE_TASK_NAME}${configurationName.capitalize()}
-            Or use ./gradlew ${ProGuardShieldPlugin.PROGUARD_SHIELD_OPTIMIZATION_BASELINE_TASK_NAME} to re-baseline in entire project.
+            If this is intentional, re-baseline using ./gradlew $projectPath$separator${ProGuardShieldPlugin.PROGUARD_SHIELD_BASELINE_TASK_NAME}${configurationName.capitalize()}
+            Or use ./gradlew ${ProGuardShieldPlugin.PROGUARD_SHIELD_BASELINE_TASK_NAME} to re-baseline in entire project.
         """.trimIndent()
     }
 

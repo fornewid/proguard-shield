@@ -18,9 +18,9 @@ public class ProGuardShieldPlugin : Plugin<Project> {
 
         internal const val PROGUARD_SHIELD_EXTENSION_NAME = "proguardShield"
 
-        internal const val PROGUARD_SHIELD_OPTIMIZATION_TASK_NAME = "proguardShieldOptimization"
+        internal const val PROGUARD_SHIELD_TASK_NAME = "proguardShield"
 
-        internal const val PROGUARD_SHIELD_OPTIMIZATION_BASELINE_TASK_NAME = "proguardShieldOptimizationBaseline"
+        internal const val PROGUARD_SHIELD_BASELINE_TASK_NAME = "proguardShieldBaseline"
 
         internal val VERSION: String by lazy {
             ProGuardShieldPlugin::class.java
@@ -38,11 +38,11 @@ public class ProGuardShieldPlugin : Plugin<Project> {
         )
 
         // Rules that block R8's optimization, with their origins. Wired to the `check` lifecycle.
-        val optimizationGuardTask = target.tasks.register(PROGUARD_SHIELD_OPTIMIZATION_TASK_NAME) {
+        val optimizationGuardTask = target.tasks.register(PROGUARD_SHIELD_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
             description = "Guard against new optimization-blocking ProGuard/R8 rules"
         }
-        val optimizationBaselineTask = target.tasks.register(PROGUARD_SHIELD_OPTIMIZATION_BASELINE_TASK_NAME) {
+        val optimizationBaselineTask = target.tasks.register(PROGUARD_SHIELD_BASELINE_TASK_NAME) {
             group = PROGUARD_SHIELD_TASK_GROUP
             description = "Save the current optimization-blocking rules to the baseline file"
         }
@@ -57,7 +57,6 @@ public class ProGuardShieldPlugin : Plugin<Project> {
             )
         }
 
-        // `check` runs the optimization mode of the variants that enable it.
         attachToCheckTask(target, optimizationGuardTask)
     }
 

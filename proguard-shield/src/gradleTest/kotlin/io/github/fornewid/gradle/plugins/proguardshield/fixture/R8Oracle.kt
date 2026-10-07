@@ -18,7 +18,7 @@ internal object R8Oracle {
 
     fun assertOptimizationListMatchesR8(project: AndroidProject, listPath: String) {
         project.dir.resolve("app/proguard-rules.pro").appendText("\n-printconfiguration r8-config.txt\n")
-        Builder.build(project, ":app:minifyReleaseWithR8", ":app:proguardShieldOptimizationBaseline")
+        Builder.build(project, ":app:minifyReleaseWithR8", ":app:proguardShieldBaseline")
 
         val read = inScopeSections(project).flatMap { RuleNormalizer.normalizeUnits(it) }
         val listed = RuleNormalizer.normalizeUnits(project.readOptimizationRules(listPath).orEmpty())
