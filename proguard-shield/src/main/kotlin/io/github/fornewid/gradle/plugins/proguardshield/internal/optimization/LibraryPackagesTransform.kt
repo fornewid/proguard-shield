@@ -12,7 +12,7 @@ import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 
 /**
- * Turns an AAR or JAR into the list of its packages ([LibraryPackages.writeList]). Gradle caches transform
+ * Turns an AAR or JAR into the list of its classes ([LibraryPackages.writeList]). Gradle caches transform
  * outputs per artifact, so each library is read once instead of on every check.
  */
 internal abstract class LibraryPackagesTransform : TransformAction<TransformParameters.None> {
@@ -22,11 +22,11 @@ internal abstract class LibraryPackagesTransform : TransformAction<TransformPara
     abstract val artifact: Provider<FileSystemLocation>
 
     override fun transform(outputs: TransformOutputs) {
-        LibraryPackages.writeList(artifact.get().asFile, outputs.file("packages.txt"))
+        LibraryPackages.writeList(artifact.get().asFile, outputs.file("classes.txt"))
     }
 
     companion object {
-        /** The `artifactType` of the package lists. */
+        /** The `artifactType` of the class lists. */
         const val ARTIFACT_TYPE = "proguard-shield-packages"
 
         fun register(dependencies: DependencyHandler) {

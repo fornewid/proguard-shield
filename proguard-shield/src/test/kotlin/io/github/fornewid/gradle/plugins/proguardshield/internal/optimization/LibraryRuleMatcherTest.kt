@@ -88,6 +88,10 @@ class LibraryRuleMatcherTest {
         val app = LibraryPackages(mapOf("com.bar:sdk" to setOf("com.bar")), appNamespace = "com.example.app")
         assertWithMessage("a package in the app's namespace")
             .that(listed("-keep class com.example.app.ui.** { *; }", packages = app)).isTrue()
+        val gson = LibraryPackages(mapOf("com.google.code.gson:gson" to setOf("com.google.gson")), classes = setOf("com.google.gson.Gson"))
+        assertWithMessage("a class missing from a package that exists")
+            .that(listed("-keep class com.google.gson.Absent { *; }", packages = gson)).isFalse()
+        assertWithMessage("a class that exists").that(listed("-keep class com.google.gson.Gson { *; }", packages = gson)).isTrue()
     }
 
     @Test

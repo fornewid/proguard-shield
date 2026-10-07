@@ -141,9 +141,11 @@ A library's rule is not listed when it:
 - is also declared by the app's rule files, AGP's default file or the library
   that owns its target, so dropping it wouldn't change R8's output
 - matches no class on the runtime classpath or in the app's namespace:
-  `-keep class com.absent.** { *; }`. Classes of the app and the project's
-  modules outside that namespace aren't read, and the type in `extends` or
-  `implements` isn't checked.
+  `-keep class com.absent.** { *; }`, or
+  `-keep class com.google.gson.Absent { *; }` when the package exists but the
+  class doesn't. A name with wildcards is checked by package. Classes of the
+  app and the project's modules outside that namespace aren't read, and the
+  type in `extends` or `implements` isn't checked.
 - is an `-assume*` rule, or an app-wide option that doesn't reduce what R8 does,
   such as `-ignorewarnings`, `-printmapping`, `-repackageclasses` or an option
   R8 ignores
@@ -214,7 +216,10 @@ proguardShield {
   without the variant suffix. Update scripts that call them by name.
 - `optimization` is removed from `configuration(...)`. Delete the line. To stop
   checking a variant, remove its `configuration(...)`.
-- Baseline files keep their names, so there is nothing to re-baseline.
+- A library's rule that names a class missing from the runtime classpath is no
+  longer listed, even when the class's package exists. Baseline files keep
+  their names. If `check` fails once, run `./gradlew proguardShieldBaseline`
+  and commit the result.
 
 ## Migrating from 0.0.11
 

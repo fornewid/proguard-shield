@@ -104,8 +104,10 @@ acceptable. Re-baselining accepts the rule.
   and `proguardShieldOptimizationBaseline` → `proguardShieldBaseline`, with or
   without the variant suffix; update scripts that call them by name.
   `optimization` is removed from `configuration(...)`: delete the line, and
-  remove a variant's `configuration(...)` to stop checking it. Baseline files
-  keep their names.
+  remove a variant's `configuration(...)` to stop checking it. A library rule
+  that names a class missing from the runtime classpath is no longer listed;
+  if `check` fails after the upgrade, re-run `proguardShieldBaseline` and
+  commit the result.
 - **Upgrading from 0.0.11**: rules are written on one line with their
   whitespace normalized. `-assume*` rules, app-wide options that don't reduce
   what R8 does (`-printconfiguration`, `-ignorewarnings`) and library rules

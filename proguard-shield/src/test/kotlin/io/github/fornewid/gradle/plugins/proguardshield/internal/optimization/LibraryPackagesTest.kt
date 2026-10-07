@@ -24,22 +24,23 @@ class LibraryPackagesTest {
     )
 
     @Test
-    fun `reads packages from an AAR's classes jar and libs jars`() {
+    fun `reads classes from an AAR's classes jar and libs jars`() {
         val aar = zip(
             dir.resolve("sdk.aar"),
             "classes.jar" to jar("com/bar/Api.class", "com/bar/internal/Impl.class"),
             "libs/extra.jar" to jar("com/bar/extra/Util.class"),
             "proguard.txt" to "-dontwarn com.bar.**".toByteArray(),
         )
-        assertThat(LibraryPackages.packagesOf(aar)).containsExactly("com.bar", "com.bar.internal", "com.bar.extra")
+        assertThat(LibraryPackages.classesOf(aar)).containsExactly("com.bar.Api", "com.bar.internal.Impl", "com.bar.extra.Util")
     }
 
     @Test
-    fun `reads packages from a JAR without module-info, the default package or the multi-release prefix`() {
+    fun `reads classes from a JAR without module-info, the default package or the multi-release prefix`() {
         val file = dir.resolve("okhttp.jar").apply {
             writeBytes(
                 jar(
                     "okhttp3/OkHttpClient.class",
+                    "okhttp3/OkHttpClient\$Builder.class",
                     "META-INF/versions/9/okhttp3/internal/Platform.class",
                     "module-info.class",
                     "Default.class",
@@ -47,15 +48,16 @@ class LibraryPackagesTest {
                 ),
             )
         }
-        assertThat(LibraryPackages.packagesOf(file)).containsExactly("okhttp3", "okhttp3.internal")
+        assertThat(LibraryPackages.classesOf(file))
+            .containsExactly("okhttp3.OkHttpClient", "okhttp3.OkHttpClient\$Builder", "okhttp3.internal.Platform")
     }
 
     @Test
-    fun `an AAR without classes and a file that is neither AAR nor JAR have no packages`() {
+    fun `an AAR without classes and a file that is neither AAR nor JAR have no classes`() {
         val aar = zip(dir.resolve("rules-only.aar"), "proguard.txt" to "-ignorewarnings".toByteArray())
         val pom = dir.resolve("sdk.pom").apply { writeText("<project/>") }
-        assertThat(LibraryPackages.packagesOf(aar)).isEmpty()
-        assertThat(LibraryPackages.packagesOf(pom)).isEmpty()
+        assertThat(LibraryPackages.classesOf(aar)).isEmpty()
+        assertThat(LibraryPackages.classesOf(pom)).isEmpty()
     }
 
     @Test
@@ -69,6 +71,22 @@ class LibraryPackagesTest {
         // An artifact the transform skipped (a variant with no single artifactType) arrives as the archive itself.
         val read = LibraryPackages.read(lists + (extra to "com.bar:sdk"), appNamespace = "com.example.app")
         assertThat(read.ownPackages("com.bar:sdk")).containsExactly("com.bar", "com.bar.extra")
+        assertThat(read.reachesProgram(ClassNamePattern("com.bar.Api"))).isTrue()
+        assertThat(read.reachesProgram(ClassNamePattern("com.bar.Absent"))).isFalse()
+    }
+
+    @Test
+    fun `a name without wildcards must name a class when the classes are known`() {
+        val firebase = LibraryPackages(
+            mapOf("com.google.firebase:firebase-iid" to setOf("com.google.firebase.iid")),
+            appNamespace = "com.example.app",
+            classes = setOf("com.google.firebase.iid.FirebaseInstanceIdReceiver"),
+        )
+        assertThat(firebase.reachesProgram(ClassNamePattern("com.google.firebase.iid.FirebaseInstanceIdReceiver"))).isTrue()
+        assertThat(firebase.reachesProgram(ClassNamePattern("com.google.firebase.iid.FirebaseInstanceId"))).isFalse()
+        // A pattern with wildcards, and the app's namespace whose classes are not read, are checked by package.
+        assertThat(firebase.reachesProgram(ClassNamePattern("com.google.firebase.iid.*"))).isTrue()
+        assertThat(firebase.reachesProgram(ClassNamePattern("com.example.app.MainActivity"))).isTrue()
     }
 
     @Test
