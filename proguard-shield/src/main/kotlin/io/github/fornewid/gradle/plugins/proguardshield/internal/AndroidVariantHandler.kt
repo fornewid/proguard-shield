@@ -157,6 +157,7 @@ internal object AndroidVariantHandler {
             this.libraryArtifacts.from(libraryPackages.artifactFiles)
             this.libraryArtifactOrigins.set(RuleOrigins.byPath(libraryPackages))
             this.appNamespace.set(appNamespace)
+            excludePackages.set(config.excludePackages)
             this.r8Context.set(r8Context)
             configurationName.set(config.configurationName)
             projectPath.set(project.path)

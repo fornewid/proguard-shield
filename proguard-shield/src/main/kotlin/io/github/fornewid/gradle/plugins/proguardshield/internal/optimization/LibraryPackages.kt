@@ -10,14 +10,22 @@ import java.util.zip.ZipInputStream
  *
  * @param byLibrary `group:module`, or `x.aar` for a file dependency → packages of its classes
  * @param appNamespace the app's namespace; a pattern that reaches it reaches the app's code
+ * @param excludePackages packages, with their subpackages, that count as every library's own
  */
-internal class LibraryPackages(byLibrary: Map<String, Set<String>>, private val appNamespace: String? = null) {
+internal class LibraryPackages(
+    byLibrary: Map<String, Set<String>>,
+    private val appNamespace: String? = null,
+    excludePackages: Collection<String> = emptyList(),
+) {
 
     private val byGroup: Map<String, Set<String>> = byLibrary.entries
         .groupBy({ it.key.substringBefore(':') }, { it.value })
         .mapValues { (_, packages) -> packages.flatten().toSet() }
 
     private val all: Set<String> = byLibrary.values.flatten().toSet()
+
+    /** `com.applovin.` is written as `com.applovin`. */
+    private val excluded: Set<String> = excludePackages.mapTo(HashSet()) { it.trimEnd('.') }
 
     /** Packages of the library [label] (`group:module`) and of the other modules in its group; a file (`x.aar`) has no group. */
     fun ownPackages(label: String): Set<String> = byGroup[label.substringBefore(':')].orEmpty()
@@ -26,18 +34,20 @@ internal class LibraryPackages(byLibrary: Map<String, Set<String>>, private val 
      * Whether [pattern], in a rule of the library [label], stays inside the library: its package sits in one
      * of the library's packages, or every classpath package it can reach is the library's. A pattern
      * without a package (`*`, `**`) or one that reaches the app's code ([reachesApp]) is never the
-     * library's own.
+     * library's own. Excluded packages count as every library's own.
      */
     fun isOwn(label: String, pattern: ClassNamePattern): Boolean {
         val pkg = pattern.packageLiteral
         if (pkg.isEmpty() || reachesApp(pattern)) return false
         val own = ownPackages(label)
-        if (own.any { pkg == it || pkg.startsWith("$it.") }) return true
+        if (own.any { pkg == it || pkg.startsWith("$it.") } || isExcluded(pkg)) return true
         // A single-package pattern reaches only its own package, which the check above covers.
         if (!pattern.isRecursive) return false
         val reached = all.filter(pattern::reaches)
-        return reached.isNotEmpty() && reached.all { it in own }
+        return reached.isNotEmpty() && reached.all { it in own || isExcluded(it) }
     }
+
+    private fun isExcluded(pkg: String): Boolean = excluded.any { pkg == it || pkg.startsWith("$it.") }
 
     /**
      * Whether [pattern] can match a class R8 processes: one an external library ships, or the app's
@@ -59,13 +69,18 @@ internal class LibraryPackages(byLibrary: Map<String, Set<String>>, private val 
          * Reads the lists [writeList] wrote; [artifacts] maps each list to its library label. An AAR or JAR the
          * transform skipped (a variant with no single `artifactType`) is read directly.
          */
-        fun read(artifacts: Map<File, String>, appNamespace: String): LibraryPackages = LibraryPackages(
+        fun read(
+            artifacts: Map<File, String>,
+            appNamespace: String,
+            excludePackages: Collection<String> = emptyList(),
+        ): LibraryPackages = LibraryPackages(
             artifacts.entries
                 .groupBy({ it.value }) { (file, _) ->
                     if (file.extension == "aar" || file.extension == "jar") packagesOf(file) else file.readLines()
                 }
                 .mapValues { (_, packages) -> packages.flatten().toSet() },
             appNamespace,
+            excludePackages,
         )
 
         /** Packages of the classes in a JAR, or in an AAR's `classes.jar` and `libs/` jars; empty for any other file. */

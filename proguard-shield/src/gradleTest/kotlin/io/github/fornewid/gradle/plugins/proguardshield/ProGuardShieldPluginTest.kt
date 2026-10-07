@@ -297,6 +297,32 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
+    fun `optimization leaves out library rules on packages the configuration excludes`() {
+        AndroidProject(
+            pluginConfig = """
+                proguardShield {
+                    configuration("release") {
+                        excludePackages = ["okio"]
+                    }
+                }
+            """.trimIndent(),
+            dependencies = "implementation 'com.vendor:sdk:1.0'\nimplementation 'com.squareup:okhttp:1.0'",
+        ).use { project ->
+            project.publishLocalJar("com.squareup", "okhttp", "1.0", "", classes = listOf("okhttp3.OkHttpClient", "okio.Buffer"))
+            project.publishLocalAar(
+                "com.vendor", "sdk", "1.0",
+                "-keep class okhttp3.** { *; }\n-keep class okio.** { *; }\n-dontobfuscate",
+                classes = listOf("com.vendor.sdk.Api"),
+            )
+
+            build(project, ":app:proguardShieldBaseline")
+
+            // Rules that block the whole app are listed whatever the configuration excludes.
+            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-dontobfuscate\n-keep class okhttp3.** { *; }\n")
+        }
+    }
+
+    @Test
     fun `optimization failure with tree shows the changed rules under the library`() {
         AndroidProject(
             pluginConfig = AndroidProject.TREE_PLUGIN_CONFIG,

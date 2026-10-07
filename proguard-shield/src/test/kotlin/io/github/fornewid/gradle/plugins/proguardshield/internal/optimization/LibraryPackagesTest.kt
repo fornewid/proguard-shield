@@ -130,6 +130,31 @@ class LibraryPackagesTest {
     }
 
     @Test
+    fun `excluded packages count as every library's own, except where they reach the app's code`() {
+        val ads = LibraryPackages(
+            mapOf(
+                "com.vendor:adapter" to setOf("com.vendor.adapter"),
+                "com.mbridge:sdk" to setOf("com.mbridge.msdk.out", "com.mbridge.msdk.video"),
+                "com.google.code.gson:gson" to setOf("com.google.gson"),
+            ),
+            appNamespace = "org.example.app",
+            excludePackages = listOf("com.mbridge.msdk", "com.google.android.gms.ads."),
+        )
+        assertThat(ads.isOwn("com.vendor:adapter", ClassNamePattern("com.mbridge.msdk.**"))).isTrue()
+        assertThat(ads.isOwn("com.vendor:adapter", ClassNamePattern("com.google.android.gms.ads.**"))).isTrue()
+        // Every classpath package it reaches is excluded.
+        assertThat(ads.isOwn("com.vendor:adapter", ClassNamePattern("com.mbridge.**"))).isTrue()
+        // A broader pattern also reaches packages that are not excluded.
+        assertThat(ads.isOwn("com.vendor:adapter", ClassNamePattern("com.**"))).isFalse()
+        val sameVendorApp = LibraryPackages(
+            mapOf("com.applovin:applovin-sdk" to setOf("com.applovin.sdk")),
+            appNamespace = "com.applovin.app",
+            excludePackages = listOf("com.applovin"),
+        )
+        assertThat(sameVendorApp.isOwn("com.vendor:adapter", ClassNamePattern("com.applovin.**"))).isFalse()
+    }
+
+    @Test
     fun `a library without artifacts uses its group's packages`() {
         assertThat(packages.isOwn("com.bar:ghost", ClassNamePattern("com.bar.**"))).isTrue()
         assertThat(packages.isOwn("com.ghost:lib", ClassNamePattern("com.ghost.**"))).isFalse()
