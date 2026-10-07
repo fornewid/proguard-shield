@@ -57,7 +57,7 @@ variant name (e.g. `configuration("freeRelease")`), not the build type — add o
 ### Step 2: Generate a baseline
 
 ```bash
-./gradlew proguardShieldOptimizationBaseline
+./gradlew proguardShieldBaseline
 ```
 
 Creates `proguardShield/releaseOptimizationBlockingRules.txt`: the AGP version
@@ -78,24 +78,24 @@ when an optimization-blocking rule appears or disappears:
 ProGuard Shield: optimization-blocking rules changed in :app (release).
 + -dontobfuscate
 
-If this is intentional, re-baseline using ./gradlew :app:proguardShieldOptimizationBaselineRelease
-Or use ./gradlew proguardShieldOptimizationBaseline to re-baseline in entire project.
+If this is intentional, re-baseline using ./gradlew :app:proguardShieldBaselineRelease
+Or use ./gradlew proguardShieldBaseline to re-baseline in entire project.
 ```
 
 ## Tasks
 
 | Task | Does | On `check` |
 |---|---|---|
-| `proguardShieldOptimization{Variant}` | Fails when an optimization-blocking rule appears or disappears | yes |
-| `proguardShieldOptimizationBaseline{Variant}` | Writes `<variant>OptimizationBlockingRules.txt` (+ `.tree.txt`) | no |
+| `proguardShield{Variant}` | Fails when an optimization-blocking rule appears or disappears | yes |
+| `proguardShieldBaseline{Variant}` | Writes `<variant>OptimizationBlockingRules.txt` (+ `.tree.txt`) | no |
 
-`proguardShieldOptimization` and `proguardShieldOptimizationBaseline` run them
-for every configuration. Besides public AGP API, they read an AGP-internal
-artifact type and two values of the R8 task.
+`proguardShield` and `proguardShieldBaseline` run them for every configuration.
+Besides public AGP API, they read an AGP-internal artifact type and two values
+of the R8 task.
 
 ## Optimization-blocking rules
 
-The optimization mode reads the rules that exist without compiling the variant,
+ProGuard Shield reads the rules that exist without compiling the variant,
 so `check` doesn't compile it: the app's rule files and AGP's default file,
 keep-rule source sets (AGP 9.1+), external libraries' consumer rules (Maven
 modules and AAR/JAR files), and the rules AGP passes to R8 as strings. It
@@ -205,8 +205,16 @@ proguardShield {
 | Option | Default | Description |
 |---|---|---|
 | `baselineDir` | `"proguardShield"` | Directory (relative to the module) where baseline files are written. |
-| `optimization` | `true` | Track optimization-blocking rules (with their origins when `tree = true`). On `check`. `false` registers no tasks for this configuration. |
 | `tree` | `false` | Also write the by-origin tree. |
+
+## Migrating from 0.0.12
+
+- Tasks are renamed: `proguardShieldOptimization` → `proguardShield` and
+  `proguardShieldOptimizationBaseline` → `proguardShieldBaseline`, with or
+  without the variant suffix. Update scripts that call them by name.
+- `optimization` is removed from `configuration(...)`. Delete the line. To stop
+  checking a variant, remove its `configuration(...)`.
+- Baseline files keep their names, so there is nothing to re-baseline.
 
 ## Migrating from 0.0.11
 
@@ -216,8 +224,7 @@ proguardShield {
   listed.
 - `-assume*` rules and app-wide options that don't reduce what R8 does, such as
   `-printconfiguration` and `-ignorewarnings`, are no longer listed. If `check`
-  fails once, run `./gradlew proguardShieldOptimizationBaseline` and commit the
-  result.
+  fails once, run `./gradlew proguardShieldBaseline` and commit the result.
 
 ## Migrating from 0.0.10
 
@@ -228,7 +235,7 @@ proguardShield {
 - A library's `-printconfiguration` is now listed like other app-wide options.
 - The optimization mode no longer compiles the variant, so it skips the sources
   listed under [Optimization-blocking rules](#optimization-blocking-rules). If
-  `check` fails once, run `./gradlew proguardShieldOptimizationBaseline` and
+  `check` fails once, run `./gradlew proguardShieldBaseline` and
   commit the result.
 
 ## Migrating from 0.0.9
@@ -245,7 +252,7 @@ proguardShield {
 
 - The optimization list starts with the AGP version and R8 mode properties, so
   `check` fails once after the upgrade: run
-  `./gradlew proguardShieldOptimizationBaseline` and commit the result.
+  `./gradlew proguardShieldBaseline` and commit the result.
 - AAR/JAR file dependencies (`files("libs/x.aar")`) are now checked like
   external libraries, and `.tree.txt` lists their rules under the file name
   (`[x.aar]`) instead of `<unresolved>`.
@@ -258,7 +265,7 @@ proguardShield {
 - The optimization mode also lists an external library's rules that reach code
   outside the library (see [Optimization-blocking rules](#optimization-blocking-rules)).
   If your libraries ship such rules, `check` fails after the upgrade — run
-  `./gradlew proguardShieldOptimizationBaseline` and commit the result.
+  `./gradlew proguardShieldBaseline` and commit the result.
 - Failure messages show only the diff. With `tree = true`, the changed rules are
   grouped by origin.
 - Keep options with spaces around the commas (`-keep, allowobfuscation class * { *; }`)

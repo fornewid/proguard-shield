@@ -26,8 +26,9 @@ internal object R8TaskInputExtractor {
         return (value as? Iterable<*>)?.map { it.toString() }
             ?: throw GradleException(
                 "ProGuard Shield: $INLINE_RULES_METHOD_NAME could not be read on ${task.javaClass.name} in this AGP " +
-                    "version (got ${value?.let { it::class.qualifiedName }}). Set optimization = false for this " +
-                    "configuration and report the AGP version at https://github.com/fornewid/proguard-shield/issues.",
+                    "version (got ${value?.let { it::class.qualifiedName }}). Report the AGP version at " +
+                    "https://github.com/fornewid/proguard-shield/issues; until it is supported, remove the " +
+                    "configuration(...) entries from the proguardShield block.",
             )
     }
 }

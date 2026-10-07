@@ -55,7 +55,7 @@ internal class ProGuardShieldPluginAgp9Test {
         newProject().use { project ->
             project.addDynamicFeature("-keepnames class **")
 
-            build(project, ":app:proguardShieldOptimizationBaseline")
+            build(project, ":app:proguardShieldBaseline")
             assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
         }
     }
@@ -107,10 +107,10 @@ internal class ProGuardShieldPluginAgp9Test {
     @Test
     fun `optimization records app blocking rules on AGP 9`() {
         newProject(proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keepattributes *").use { project ->
-            build(project, ":app:proguardShieldOptimizationBaseline")
+            build(project, ":app:proguardShieldBaseline")
 
             assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keepattributes *\n")
-            assertThat(build(project, ":app:proguardShieldOptimization").output)
+            assertThat(build(project, ":app:proguardShield").output)
                 .doesNotContain("optimization-blocking rules changed")
         }
     }
@@ -124,7 +124,7 @@ internal class ProGuardShieldPluginAgp9Test {
             // Not -dontobfuscate: AGP 9.5+ removes such app-wide options from consumer rules before R8 reads them.
             project.publishLocalAar("com.example", "risky", "1.0", "-keepattributes *\n-keep class ** { *; }")
 
-            build(project, ":app:proguardShieldOptimizationBaseline")
+            build(project, ":app:proguardShieldBaseline")
 
             assertThat(project.readBaselineFile(OPTIMIZATION_TREE))
                 .isEqualTo("[com.example:risky]\n-keep class ** { *; }\n-keepattributes *\n")
@@ -144,7 +144,7 @@ internal class ProGuardShieldPluginAgp9Test {
                 classes = listOf("com.vendor.sdk.Api"),
             )
 
-            build(project, ":app:proguardShieldOptimizationBaseline")
+            build(project, ":app:proguardShieldBaseline")
 
             assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keep class com.google.gson.** { *; }\n")
         }

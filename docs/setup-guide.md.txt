@@ -65,26 +65,25 @@ for it. Do NOT apply this plugin to a library module — it only works for
 
 ## Step 2: Generate a baseline
 
-    ./gradlew proguardShieldOptimizationBaseline
+    ./gradlew proguardShieldBaseline
 
 This writes `proguardShield/releaseOptimizationBlockingRules.txt`: the AGP
 version and R8 mode properties, then the blocking rules (often none). Commit it.
 
-**AI Agent**: Always run `proguardShieldOptimizationBaseline` first during
+**AI Agent**: Always run `proguardShieldBaseline` first during
 initial setup and commit the file, even if it lists no rules.
 
 ## Step 3: Detect changes
 
     ./gradlew check
 
-`check` runs `proguardShieldOptimization{Variant}` without invoking R8 or
+`check` runs `proguardShield{Variant}` without invoking R8 or
 compiling the variant. It reads the app's rule files, keep-rule source sets and
 external libraries' consumer rules; the consumer rules of the project's own
 modules, rules generated while compiling and AAPT2 rules are out of its scope.
 When an optimization-blocking rule appears or disappears, the build fails with
 the rule diff; with `tree = true` the diff is grouped under the library that
-adds each rule. To accept the change, re-run
-`./gradlew proguardShieldOptimizationBaseline`.
+adds each rule. To accept the change, re-run `./gradlew proguardShieldBaseline`.
 
 **AI Agent**: Before re-baselining, show the user which library added the rule
 (the dependency change in the same PR, or `tree = true`) and ask whether it is
@@ -101,19 +100,25 @@ acceptable. Re-baselining accepts the rule.
 - **`isMinifyEnabled = false`**: the plugin requires the target variant to
   have minification enabled. The plugin throws a configuration-time error
   if not, naming the variant.
+- **Upgrading from 0.0.12**: `proguardShieldOptimization` → `proguardShield`
+  and `proguardShieldOptimizationBaseline` → `proguardShieldBaseline`, with or
+  without the variant suffix; update scripts that call them by name.
+  `optimization` is removed from `configuration(...)`: delete the line, and
+  remove a variant's `configuration(...)` to stop checking it. Baseline files
+  keep their names.
 - **Upgrading from 0.0.11**: rules are written on one line with their
   whitespace normalized. `-assume*` rules, app-wide options that don't reduce
   what R8 does (`-printconfiguration`, `-ignorewarnings`) and library rules
   that match no class or that the app, AGP or the owning library also declare
   are no longer listed. If `check` fails after the upgrade, re-run
-  `proguardShieldOptimizationBaseline` and commit the result.
+  `proguardShieldBaseline` and commit the result.
 - **Upgrading from 0.0.10**: the full and fullFast modes,
   `proguardShieldVerifyParity` and `forbiddenPatterns` are removed: delete
   `full`, `fullFast` and `forbiddenPatterns` from the configuration blocks, and
   the `*FullRules.txt` and `*FullFastRules.txt` baselines. The optimization
   mode no longer compiles the variant, so it skips the sources listed in
   Step 3. If `check` fails after the upgrade, re-run
-  `proguardShieldOptimizationBaseline` and commit the result.
+  `proguardShieldBaseline` and commit the result.
 - **Upgrading from 0.0.9**: on AGP 9.3+, the optimization and fullFast modes
   read the rules of dynamic feature modules again, and both modes also read
   the rules AGP passes to R8 as strings (JaCoCo's keep rules when testing a
@@ -123,13 +128,13 @@ acceptable. Re-baselining accepts the rule.
 - **Upgrading from 0.0.7**: the optimization list starts with the AGP version
   and R8 mode properties, and rules of AAR/JAR file dependencies
   (`files("libs/x.aar")`) are checked like external libraries. `check` fails
-  once after the upgrade: re-run `proguardShieldOptimizationBaseline` and
+  once after the upgrade: re-run `proguardShieldBaseline` and
   commit the result. On AGP 9.3+, re-run `proguardShieldFullFastBaseline` too:
   it now includes AAPT2-generated keep rules unless optimized resource
   shrinking runs.
 - **Upgrading from 0.0.6**: the optimization mode also lists external libraries'
   rules that reach code outside the library. If `check` fails after the upgrade,
-  re-run `proguardShieldOptimizationBaseline` and commit the result.
+  re-run `proguardShieldBaseline` and commit the result.
 - **Upgrading from 0.0.5**: `configuration("release")` now runs only the
   optimization mode. Set `full = true` / `fullFast = true` to keep the full
   rule baselines; until then `proguardShieldFull` / `proguardShieldFullFast`

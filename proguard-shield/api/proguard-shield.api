@@ -2,9 +2,7 @@ public class io/github/fornewid/gradle/plugins/proguardshield/ProGuardShieldConf
 	public fun <init> (Ljava/lang/String;)V
 	public final fun getConfigurationName ()Ljava/lang/String;
 	public fun getName ()Ljava/lang/String;
-	public final fun getOptimization ()Z
 	public final fun getTree ()Z
-	public final fun setOptimization (Z)V
 	public final fun setTree (Z)V
 }
 

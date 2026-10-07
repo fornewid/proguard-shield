@@ -113,8 +113,6 @@ internal object AndroidVariantHandler {
             )
         }
 
-        if (!config.optimization) return
-
         val capitalizedName = config.configurationName.capitalize()
         val baselineDirectory = OutputFileUtils.proguardShieldDir(project, baselineDir)
         val minifyTaskName = "minify${capitalizedName}WithR8"
@@ -170,13 +168,13 @@ internal object AndroidVariantHandler {
         }
 
         val optimizationConfigGuardTask = project.tasks.register(
-            "proguardShieldOptimization$capitalizedName",
+            "${ProGuardShieldPlugin.PROGUARD_SHIELD_TASK_NAME}$capitalizedName",
             ProGuardShieldOptimizationTask::class.java,
         ) { configureOptimization(baseline = false) }
         optimizationGuardTask.configure { dependsOn(optimizationConfigGuardTask) }
 
         val optimizationConfigBaselineTask = project.tasks.register(
-            "proguardShieldOptimizationBaseline$capitalizedName",
+            "${ProGuardShieldPlugin.PROGUARD_SHIELD_BASELINE_TASK_NAME}$capitalizedName",
             ProGuardShieldOptimizationTask::class.java,
         ) { configureOptimization(baseline = true) }
         optimizationBaselineTask.configure { dependsOn(optimizationConfigBaselineTask) }
