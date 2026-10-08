@@ -7,7 +7,6 @@ import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPlugin
 import io.github.fornewid.gradle.plugins.proguardshield.ProGuardShieldPluginExtension
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.LibraryPackagesTransform
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.ProGuardShieldOptimizationTask
-import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.R8Context
 import io.github.fornewid.gradle.plugins.proguardshield.internal.optimization.RuleOrigins
 import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.IgnoredLibraryKeepRules
 import io.github.fornewid.gradle.plugins.proguardshield.internal.r8input.R8TaskInputExtractor
@@ -144,9 +143,6 @@ internal object AndroidVariantHandler {
 
         val libraryPackages = libraryArtifacts(LibraryPackagesTransform.ARTIFACT_TYPE)
         val appNamespace = variant.namespace
-        val r8Context = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java).pluginVersion.run {
-            R8Context.lines(R8Context.agpVersion(major, minor, micro, previewType, preview)) { project.providers.gradleProperty(it).orNull }
-        }
 
         fun ProGuardShieldOptimizationTask.configureOptimization(baseline: Boolean) {
             this.ruleInputs.from(ruleInputs)
@@ -158,7 +154,6 @@ internal object AndroidVariantHandler {
             this.libraryArtifactOrigins.set(RuleOrigins.byPath(libraryPackages))
             this.appNamespace.set(appNamespace)
             excludePackages.set(config.excludePackages)
-            this.r8Context.set(r8Context)
             configurationName.set(config.configurationName)
             projectPath.set(project.path)
             this.projectDirPath.set(projectDirPath)

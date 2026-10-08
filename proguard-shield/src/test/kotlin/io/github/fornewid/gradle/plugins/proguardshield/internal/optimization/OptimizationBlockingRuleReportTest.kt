@@ -75,19 +75,9 @@ class OptimizationBlockingRuleReportTest {
     }
 
     @Test
-    fun `renderList writes the R8 context above the rules`() {
-        val context = listOf("# agp=9.4.1", "# android.enableR8.fullMode=default")
-        assertThat(OptimizationBlockingRuleReport.renderList(listOf(BlockingRule("-dontobfuscate", sdk)), context))
-            .isEqualTo("# agp=9.4.1\n# android.enableR8.fullMode=default\n\n-dontobfuscate\n")
-        assertThat(OptimizationBlockingRuleReport.renderList(emptyList(), context))
-            .isEqualTo("# agp=9.4.1\n# android.enableR8.fullMode=default\n")
-    }
-
-    @Test
-    fun `diffList reports a changed R8 context`() {
-        val baseline = OptimizationBlockingRuleReport.renderList(emptyList(), listOf("# agp=9.4.1"))
-        assertThat(OptimizationBlockingRuleReport.diffList(baseline, emptyList(), listOf("# agp=9.5.0")))
-            .isEqualTo(RuleChanges(added = listOf("# agp=9.5.0"), removed = listOf("# agp=9.4.1")))
+    fun `diffList ignores the header an earlier version wrote`() {
+        val baseline = "# agp=9.4.1\n# android.enableR8.fullMode=default\n\n-dontobfuscate\n"
+        assertThat(OptimizationBlockingRuleReport.diffList(baseline, listOf(BlockingRule("-dontobfuscate", sdk))).isEmpty).isTrue()
     }
 
     @Test
@@ -157,33 +147,6 @@ class OptimizationBlockingRuleReportTest {
             + -ignorewarnings
               [com.other:lib]
             + -keep class ** { *; }
-
-            re-baseline hint
-            """.trimIndent(),
-        )
-    }
-
-    @Test
-    fun `failureMessage shows R8 context changes before the rules`() {
-        val list = RuleChanges(added = listOf("# agp=9.5.0", "-dontobfuscate"), removed = listOf("# agp=9.4.1"))
-        assertThat(message(list, RuleChanges.none())).isEqualTo(
-            """
-            ProGuard Shield: optimization-blocking rules changed in :app (release).
-            - # agp=9.4.1
-            + # agp=9.5.0
-            + -dontobfuscate
-
-            re-baseline hint
-            """.trimIndent(),
-        )
-        val tree = RuleChanges(added = listOf(BlockingRule("-dontobfuscate", sdk)), removed = emptyList())
-        assertThat(message(list, tree)).isEqualTo(
-            """
-            ProGuard Shield: optimization-blocking rules changed in :app (release).
-            - # agp=9.4.1
-            + # agp=9.5.0
-              [com.example:sdk]
-            + -dontobfuscate
 
             re-baseline hint
             """.trimIndent(),

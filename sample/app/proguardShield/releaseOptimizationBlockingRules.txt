@@ -1,4 +1,0 @@
-# agp=8.8.0
-# android.enableR8.fullMode=default
-# android.r8.strictFullModeForKeepRules=default
-# android.r8.globalOptionsInConsumerRules.disallowed=default

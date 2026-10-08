@@ -13,7 +13,7 @@ internal class AndroidProject(
     private val minifyEnabled: Boolean = true,
     private val shrinkResources: Boolean = false,
     private val extraProguardFiles: String = "",
-    val agpVersion: String = System.getProperty("agpVersion") ?: DEFAULT_AGP_VERSION,
+    private val agpVersion: String = System.getProperty("agpVersion") ?: DEFAULT_AGP_VERSION,
     val gradleVersion: String? = null,
     private val releaseExtra: String = "",
     private val dependencies: String = "",
@@ -291,9 +291,6 @@ internal class AndroidProject(
         val file = dir.resolve("app/$path")
         return if (file.exists()) file.readText() else null
     }
-
-    /** The rules of an optimization list baseline, without its R8 context header. */
-    fun readOptimizationRules(path: String): String? = readBaselineFile(path)?.substringAfter("\n\n", "")
 
     fun baselineFileExists(path: String): Boolean {
         return dir.resolve("app/$path").exists()

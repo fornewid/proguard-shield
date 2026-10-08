@@ -60,10 +60,9 @@ variant name (e.g. `configuration("freeRelease")`), not the build type — add o
 ./gradlew proguardShieldBaseline
 ```
 
-Creates `proguardShield/releaseOptimizationBlockingRules.txt`: the AGP version
-and R8 mode properties, then the rules that block R8's optimization (often none).
-Commit it, so the next such rule — or an AGP or R8 mode change — shows up as a
-failure.
+Creates `proguardShield/releaseOptimizationBlockingRules.txt` with the rules that
+block R8's optimization (often none). Commit it, so the next such rule shows up
+as a failure.
 
 ### Step 3: Detect changes
 
@@ -152,19 +151,6 @@ Each rule is written on one line with its whitespace normalized, so the same
 rule written with other spacing is one entry, and a library that only reformats
 its rules doesn't change the list.
 
-The list starts with what decides how R8 reads these rules: the AGP version, the
-R8 version when `android.r8.versionOverride` sets one (AGP 9.5+), and the R8
-mode properties as set (`default` when unset).
-
-```
-# agp=9.4.1
-# android.enableR8.fullMode=default
-# android.r8.strictFullModeForKeepRules=default
-# android.r8.globalOptionsInConsumerRules.disallowed=default
-
--keep class com.google.gson.** { *; }
-```
-
 With `tree = true`, `<variant>OptimizationBlockingRules.tree.txt` groups the
 rules by origin (Maven versions omitted, so upgrading a library alone does not change it):
 
@@ -208,6 +194,13 @@ proguardShield {
 | `baselineDir` | `"proguardShield"` | Directory (relative to the module) where baseline files are written. |
 | `tree` | `false` | Also write the by-origin tree. |
 | `excludePackages` | `[]` | Packages, with their subpackages, whose external library rules are left out, such as an ad SDK's own code. |
+
+## Migrating from 0.0.14
+
+- The list no longer starts with the AGP version and R8 mode properties, so an
+  AGP upgrade or an R8 mode change no longer fails `check`. Existing baselines
+  still pass, and the next `proguardShieldBaseline` writes them without those
+  lines.
 
 ## Migrating from 0.0.12
 
@@ -302,12 +295,11 @@ Rename the committed baseline files (`git mv`), or regenerate them with
 
 ## Limitations
 
-ProGuard Shield compares the text of the rules. An AGP upgrade or an R8
-mode property change fails `check` once, but it cannot tell what the change does
-to R8's output, or whether your rules are sufficient (new reflection without a
-matching keep rule produces no diff). An R8 version set apart from AGP's is
-recorded only through `android.r8.versionOverride`. After such changes, test
-your release build.
+ProGuard Shield compares the text of the rules. It does not detect changes in
+how R8 reads unchanged rules, such as an AGP or R8 upgrade or a change to the
+R8 mode properties, and it does not tell whether your rules are sufficient (new
+reflection without a matching keep rule produces no diff). After such changes,
+test your release build.
 
 ## Requirements
 

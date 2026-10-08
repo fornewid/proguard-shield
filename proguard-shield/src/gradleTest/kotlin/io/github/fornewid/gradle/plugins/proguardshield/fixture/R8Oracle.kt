@@ -21,7 +21,7 @@ internal object R8Oracle {
         Builder.build(project, ":app:minifyReleaseWithR8", ":app:proguardShieldBaseline")
 
         val read = inScopeSections(project).flatMap { RuleNormalizer.normalizeUnits(it) }
-        val listed = RuleNormalizer.normalizeUnits(project.readOptimizationRules(listPath).orEmpty())
+        val listed = RuleNormalizer.normalizeUnits(project.readBaselineFile(listPath).orEmpty())
         assertWithMessage("listed rules that R8 does not read").that(read).containsAtLeastElementsIn(listed)
         assertWithMessage("blocking rules R8 reads that are not listed")
             .that(listed)

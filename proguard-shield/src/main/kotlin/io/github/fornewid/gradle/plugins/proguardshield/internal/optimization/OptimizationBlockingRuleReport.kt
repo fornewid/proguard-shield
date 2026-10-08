@@ -18,19 +18,16 @@ internal data class RuleChanges<T>(val added: List<T>, val removed: List<T>) {
 
 /**
  * Renders and compares the optimization baselines, dependency-guard style:
- * a list (`<variant>OptimizationBlockingRules.txt`, the [R8Context] header and
- * each rule once) and an optional tree (`.tree.txt`, rules grouped by origin).
+ * a list (`<variant>OptimizationBlockingRules.txt`, each rule once) and an
+ * optional tree (`.tree.txt`, rules grouped by origin).
  */
 internal object OptimizationBlockingRuleReport {
 
     /** Local modules first, then libraries, then the AGP default file, then unresolved files. */
     private val ORIGIN_ORDER: Comparator<String> = compareBy({ groupRank(it) }, { it })
 
-    fun renderList(rules: List<BlockingRule>, context: List<String> = emptyList()): String = buildString {
-        context.forEach { appendLine(it) }
-        val units = rules.map { it.unit }.distinct().sorted()
-        if (context.isNotEmpty() && units.isNotEmpty()) appendLine()
-        units.forEach { appendLine(it) }
+    fun renderList(rules: List<BlockingRule>): String = buildString {
+        rules.map { it.unit }.distinct().sorted().forEach { appendLine(it) }
     }
 
     fun renderTree(rules: List<BlockingRule>): String = buildString {
@@ -42,19 +39,16 @@ internal object OptimizationBlockingRuleReport {
         }
     }
 
-    /** Header lines ([R8Context]) and rules only in [rules] or only in [baseline]; other comments are ignored. */
-    fun diffList(baseline: String, rules: List<BlockingRule>, context: List<String> = emptyList()): RuleChanges<String> {
-        val expected = baseline.lines().map(String::trim).filter(R8Context::isHeader) +
-            RuleNormalizer.normalizeLines(baseline)
-        return changes(expected.toSet(), (context + rules.map { it.unit }).toSet())
-    }
+    /** Rules only in [rules] or only in [baseline]; comments, such as the header earlier versions wrote, are ignored. */
+    fun diffList(baseline: String, rules: List<BlockingRule>): RuleChanges<String> =
+        changes(RuleNormalizer.normalizeLines(baseline).toSet(), rules.map { it.unit }.toSet())
 
     fun diffTree(baseline: String, rules: List<BlockingRule>): RuleChanges<BlockingRule> =
         changes(parseTree(baseline), rules.toSet())
 
     /**
-     * The changes as a diff: [R8Context] header changes first, then the rules, or — when the tree changed —
-     * the rules under each origin label, like manifest-shield's sources diff.
+     * The changes as a diff: the rules, or — when the tree changed — the rules under each origin label,
+     * like manifest-shield's sources diff.
      */
     fun failureMessage(
         projectPath: String,
@@ -64,13 +58,9 @@ internal object OptimizationBlockingRuleReport {
         rebaselineMessage: String,
     ): String = buildString {
         appendLine("ProGuard Shield: optimization-blocking rules changed in $projectPath ($configurationName).")
-        val (addedHeader, added) = list.added.partition(R8Context::isHeader)
-        val (removedHeader, removed) = list.removed.partition(R8Context::isHeader)
-        removedHeader.forEach { appendUnit("- ", it) }
-        addedHeader.forEach { appendUnit("+ ", it) }
         if (tree.isEmpty) {
-            added.forEach { appendUnit("+ ", it) }
-            removed.forEach { appendUnit("- ", it) }
+            list.added.forEach { appendUnit("+ ", it) }
+            list.removed.forEach { appendUnit("- ", it) }
         } else {
             (tree.removed.map { "- " to it } + tree.added.map { "+ " to it })
                 .groupBy { it.second.origin.label }

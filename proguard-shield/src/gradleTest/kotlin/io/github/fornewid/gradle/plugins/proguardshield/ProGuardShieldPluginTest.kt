@@ -86,7 +86,7 @@ internal class ProGuardShieldPluginTest {
             val result = build(project, ":app:proguardShieldBaseline")
 
             assertThat(result.task(":app:minifyReleaseWithR8")).isNull()
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
             assertThat(project.baselineFileExists(OPTIMIZATION_TREE)).isFalse()
         }
     }
@@ -130,7 +130,7 @@ internal class ProGuardShieldPluginTest {
 
             R8Oracle.assertOptimizationListMatchesR8(project, OPTIMIZATION_LIST)
             // Each source contributes one: AGP's string rules, the AAR, the app, the file AAR, the JAR.
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo(
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo(
                 "-dontoptimize\n-keep class ** { *; }\n-keepattributes *\n-keepclasseswithmembers class * { *; }\n-keepnames class **\n",
             )
         }
@@ -147,7 +147,7 @@ internal class ProGuardShieldPluginTest {
 
             build(project, ":app:proguardShieldBaseline")
 
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST))
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST))
                 .isEqualTo("-dontobfuscate\n-keep class ** { *; }\n-keepattributes *\n")
             assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo(
                 "[:app]\n-keepattributes *\n\n[com.example:risky]\n-dontobfuscate\n-keep class ** { *; }\n",
@@ -172,21 +172,6 @@ internal class ProGuardShieldPluginTest {
     }
 
     @Test
-    fun `optimization list starts with the AGP version and R8 mode properties`() {
-        AndroidProject().use { project ->
-            build(project, ":app:proguardShieldBaseline")
-            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo(
-                "# agp=${project.agpVersion}\n# android.enableR8.fullMode=default\n" +
-                    "# android.r8.strictFullModeForKeepRules=default\n# android.r8.globalOptionsInConsumerRules.disallowed=default\n",
-            )
-
-            val output = buildAndFail(project, ":app:proguardShield", "-Pandroid.enableR8.fullMode=false").output
-            assertThat(output).contains("- # android.enableR8.fullMode=default")
-            assertThat(output).contains("+ # android.enableR8.fullMode=false")
-        }
-    }
-
-    @Test
     fun `optimization failure shows only the rule diff`() {
         AndroidProject(
             pluginConfig = AndroidProject.MINIMAL_PLUGIN_CONFIG,
@@ -195,7 +180,7 @@ internal class ProGuardShieldPluginTest {
             project.publishLocalAar("com.example", "sdk", "1.0", "-keep class com.example.sdk.Marker")
             project.publishLocalAar("com.example", "sdk", "2.0", "-keep class com.example.sdk.Marker\n-dontobfuscate")
             build(project, ":app:proguardShieldBaseline")
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
 
             project.replaceInAppBuildFile("com.example:sdk:1.0", "com.example:sdk:2.0")
 
@@ -255,7 +240,7 @@ internal class ProGuardShieldPluginTest {
             build(project, ":app:proguardShieldBaseline")
 
             // -ignorewarnings is an app-wide option, but it doesn't reduce what R8 does.
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo(
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo(
                 "-keep class com.google.gson.** { *; }\n-keep class io.github.fornewid.** { *; }\n" +
                     "-keep class okhttp3.** { *; }\n-keep class okio.** { *; }\n",
             )
@@ -291,7 +276,7 @@ internal class ProGuardShieldPluginTest {
 
             build(project, ":app:proguardShieldBaseline")
 
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keep class okio.** { *; }\n")
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo("-keep class okio.** { *; }\n")
             assertThat(project.readBaselineFile(OPTIMIZATION_TREE)).isEqualTo("[com.vendor:sdk]\n-keep class okio.** { *; }\n")
         }
     }
@@ -318,7 +303,7 @@ internal class ProGuardShieldPluginTest {
             build(project, ":app:proguardShieldBaseline")
 
             // Rules that block the whole app are listed whatever the configuration excludes.
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-dontobfuscate\n-keep class okhttp3.** { *; }\n")
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo("-dontobfuscate\n-keep class okhttp3.** { *; }\n")
         }
     }
 
@@ -337,7 +322,7 @@ internal class ProGuardShieldPluginTest {
                 classes = listOf("com.vendor.sdk.Api"),
             )
             build(project, ":app:proguardShieldBaseline")
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
 
             project.replaceInAppBuildFile("com.vendor:sdk:1.0", "com.vendor:sdk:2.0")
 
@@ -366,7 +351,7 @@ internal class ProGuardShieldPluginTest {
 
             R8Oracle.assertOptimizationListMatchesR8(project, OPTIMIZATION_LIST)
 
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
         }
     }
 
