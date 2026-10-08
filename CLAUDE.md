@@ -63,4 +63,5 @@ Quick reference of the workflows:
 - `publish.yml` — on push to `main`. Skips `-SNAPSHOT` versions. Publishes to both registries, tags the commit, bumps to the next `-SNAPSHOT`.
 - `release.yml` — manual `workflow_dispatch`. Opens a PR that strips `-SNAPSHOT`.
 - `release-drafter.yml` — updates the draft GitHub Release on every main push / tag.
-- `newest-agp.yml` — weekly + manual. Runs the AGP 9 gradleTests on the newest AGP and Gradle (previews included), also as AGP 10 would behave.
+- `newest-agp.yml` — every PR + manual. Runs the AGP 9 gradleTests on the newest AGP and Gradle (previews included), also as AGP 10 would behave. If only this check fails on a PR, run it on main (manually) to see whether a new AGP or Gradle broke it rather than the PR.
+- `agp-release.yml` — daily + manual. For each new AGP version on Google Maven (the newest, and the newest stable), runs `newest-agp.yml` on main and opens an `agp-release` issue with the result and a checklist, for whoever takes the verification.

@@ -49,8 +49,12 @@ jobs:
       matrix:
         # Lowest supported AGP (matches `compileOnly` in build.gradle.kts) +
         # current tracked version (libs.versions.toml). Expand when a new
-        # AGP major lands or a compatibility issue is reported.
+        # AGP major lands or a compatibility issue is reported. The AGP 9
+        # tests pin their own AGP, so the 8.0.0 job leaves them to 8.8.0.
         agp: [ "8.0.0", "8.8.0" ]
+        include:
+          - agp: "8.0.0"
+            tests: "--tests '*ProGuardShieldPluginTest'"
     steps:
       - uses: actions/checkout@v6
 
@@ -67,4 +71,4 @@ jobs:
         uses: gradle/actions/setup-gradle@v5
 
       - name: Integration tests against AGP ${{ matrix.agp }}
-        run: ./gradlew :proguard-shield:gradleTest -PagpVersion=${{ matrix.agp }} --stacktrace
+        run: ./gradlew :proguard-shield:gradleTest -PagpVersion=${{ matrix.agp }} ${{ matrix.tests }} --stacktrace

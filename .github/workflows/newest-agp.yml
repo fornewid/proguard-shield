@@ -2,11 +2,15 @@ name: Newest AGP
 
 # Early warning for the next AGP: runs the AGP 9 integration tests, including the
 # R8 input guard, on the newest AGP and Gradle (previews too), then again as AGP 10
-# would behave.
+# would behave. Runs on every PR, and on main for each new AGP (agp-release.yml).
 on:
-  schedule:
-    - cron: '0 0 * * 1'
+  pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      agp:
+        description: AGP version to test; the newest when empty
+        type: string
 
 jobs:
   newest-agp:
@@ -31,10 +35,12 @@ jobs:
       # `~` sorts a preview (9.8.0~rc~1) before its release (9.8.0).
       - name: Find the newest AGP and Gradle
         id: newest
+        env:
+          AGP: ${{ inputs.agp }}
         run: |
           newest() { tr - '~' | sort -V | tail -1 | tr '~' -; }
-          agp=$(curl -fsS https://dl.google.com/android/maven2/com/android/tools/build/gradle/maven-metadata.xml \
-            | sed -n 's:.*<version>\(.*\)</version>.*:\1:p' | newest)
+          agp=${AGP:-$(curl -fsS https://dl.google.com/android/maven2/com/android/tools/build/gradle/maven-metadata.xml \
+            | sed -n 's:.*<version>\(.*\)</version>.*:\1:p' | newest)}
           gradle=$(curl -fsS https://services.gradle.org/versions/all \
             | jq -r '.[] | select(.snapshot or .nightly or .releaseNightly or .broken | not) | .version' | newest)
           echo "agp=$agp" >> "$GITHUB_OUTPUT"
