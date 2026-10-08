@@ -56,7 +56,7 @@ internal class ProGuardShieldPluginAgp9Test {
             project.addDynamicFeature("-keepnames class **")
 
             build(project, ":app:proguardShieldBaseline")
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEmpty()
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEmpty()
         }
     }
 
@@ -80,7 +80,7 @@ internal class ProGuardShieldPluginAgp9Test {
 
             R8Oracle.assertOptimizationListMatchesR8(project, OPTIMIZATION_LIST)
 
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keepnames class **\n")
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo("-keepnames class **\n")
         }
     }
 
@@ -99,7 +99,7 @@ internal class ProGuardShieldPluginAgp9Test {
             )
 
             R8Oracle.assertOptimizationListMatchesR8(project, OPTIMIZATION_LIST)
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST))
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST))
                 .isEqualTo("-dontoptimize\n-keepattributes *\n-keepclassmembers class * { *; }\n-keepnames class **\n")
         }
     }
@@ -109,7 +109,7 @@ internal class ProGuardShieldPluginAgp9Test {
         newProject(proguardRules = AndroidProject.DEFAULT_PROGUARD_RULES + "\n-keepattributes *").use { project ->
             build(project, ":app:proguardShieldBaseline")
 
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keepattributes *\n")
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo("-keepattributes *\n")
             assertThat(build(project, ":app:proguardShield").output)
                 .doesNotContain("optimization-blocking rules changed")
         }
@@ -146,7 +146,7 @@ internal class ProGuardShieldPluginAgp9Test {
 
             build(project, ":app:proguardShieldBaseline")
 
-            assertThat(project.readOptimizationRules(OPTIMIZATION_LIST)).isEqualTo("-keep class com.google.gson.** { *; }\n")
+            assertThat(project.readBaselineFile(OPTIMIZATION_LIST)).isEqualTo("-keep class com.google.gson.** { *; }\n")
         }
     }
 

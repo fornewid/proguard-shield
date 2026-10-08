@@ -67,8 +67,8 @@ user explicitly asks for it. Do NOT apply this plugin to a library module — it
 
     ./gradlew proguardShieldBaseline
 
-This writes `proguardShield/releaseOptimizationBlockingRules.txt`: the AGP
-version and R8 mode properties, then the blocking rules (often none). Commit it.
+This writes `proguardShield/releaseOptimizationBlockingRules.txt` with the
+blocking rules (often none). Commit it.
 
 **AI Agent**: Always run `proguardShieldBaseline` first during
 initial setup and commit the file, even if it lists no rules.
@@ -100,6 +100,9 @@ acceptable. Re-baselining accepts the rule.
 - **`isMinifyEnabled = false`**: the plugin requires the target variant to
   have minification enabled. The plugin throws a configuration-time error
   if not, naming the variant.
+- **Upgrading from 0.0.14**: the list no longer starts with the AGP version and
+  R8 mode properties. Existing baselines still pass, and the next baseline is
+  written without them.
 - **Upgrading from 0.0.12**: `proguardShieldOptimization` → `proguardShield`
   and `proguardShieldOptimizationBaseline` → `proguardShieldBaseline`, with or
   without the variant suffix; update scripts that call them by name.
