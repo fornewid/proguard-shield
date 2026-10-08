@@ -1,0 +1,68 @@
+name: AGP release
+
+# Opens an issue for each new AGP version on Google Maven, with the result of the
+# newest-AGP tests on main for that version, so the verification can be handed to
+# someone. It checks the newest version and the newest stable one, because the next
+# line's previews come out before the current stable.
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      agp: ${{ steps.check.outputs.agp }}
+    steps:
+      # `~` sorts a preview (9.8.0~rc~1) before its release (9.8.0).
+      - name: Find a new AGP without an issue
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          newest() { tr - '~' | sort -V | tail -1 | tr '~' -; }
+          versions=$(curl -fsS https://dl.google.com/android/maven2/com/android/tools/build/gradle/maven-metadata.xml \
+            | sed -n 's:.*<version>\(.*\)</version>.*:\1:p')
+          titles=$(gh issue list --repo "$GITHUB_REPOSITORY" --label agp-release --state all --limit 1000 \
+            --json title --jq '.[].title')
+          for agp in "$(newest <<< "$versions")" "$(grep -v -- - <<< "$versions" | newest)"; do
+            if ! grep -qxF "AGP $agp released" <<< "$titles"; then
+              echo "agp=$agp" >> "$GITHUB_OUTPUT"
+              break
+            fi
+          done
+
+  test:
+    needs: detect
+    if: needs.detect.outputs.agp
+    uses: ./.github/workflows/newest-agp.yml
+    with:
+      agp: ${{ needs.detect.outputs.agp }}
+
+  issue:
+    needs: [ detect, test ]
+    if: ${{ !cancelled() && needs.detect.outputs.agp }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGP: ${{ needs.detect.outputs.agp }}
+          RESULT: ${{ needs.test.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create agp-release --repo "$GITHUB_REPOSITORY" --color 0e8a16 \
+            --description "A new AGP version to verify" 2>/dev/null || true
+          cat > body.md <<BODY
+          **Newest-AGP tests on main:** $RESULT ([run]($RUN_URL))
+
+          - [ ] Read the AGP release notes for changes to R8, keep rules or consumer rules: https://developer.android.com/build/releases/gradle-plugin
+          - [ ] If the tests failed, find the cause. A new file input on the R8 task fails the R8 input guard (\`R8TaskInputs\`).
+          - [ ] For a stable release, bump the pinned AGP 9 version (\`ProGuardShieldPluginAgp9Test\`).
+          BODY
+          gh issue create --repo "$GITHUB_REPOSITORY" --label agp-release --title "AGP $AGP released" --body-file body.md
